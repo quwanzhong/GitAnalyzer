@@ -32,7 +32,7 @@
 ## 🔧 核心组件
 
 ### 1. 全局安装脚本
-**文件**: `.git-scripts-install/git-analyzer-global-installer.sh`
+**文件**: `.git-scripts-install/git-analyzer-global-installer-new.sh`
 
 **功能**:
 - 创建全局配置目录 `~/.git-analyzer`
