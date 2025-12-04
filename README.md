@@ -2,6 +2,12 @@
 
 基于观察者模式的 Git 提交代码分析工具，使用 Gemini AI 自动分析每次代码提交。
 
+## 🌐 跨平台支持
+
+✅ **macOS** - 完整支持  
+✅ **Windows** - 完整支持 (查看 [Windows 安装指南](./README-WINDOWS.md))  
+✅ **Linux** - 使用 macOS 版本脚本
+
 ## 🎯 设计思想
 
 采用**观察者模式**架构：
@@ -25,12 +31,18 @@ GitAnalyzer/                          # 全局服务主目录
 ├── .git-scripts/                     # 核心分析脚本（原始版本）
 │   ├── analyze_commit.sh
 │   └── toggle_analyzer.sh
-├── .git-scripts-install/             # 安装和管理脚本
-│   ├── git-analyzer-global-installer-new.sh  # 全局安装脚本
+├── .git-scripts-install/             # Mac/Linux 安装脚本
+│   ├── git-analyzer-global-installer.sh  # 全局安装脚本
 │   ├── register.sh                   # 项目注册脚本
 │   ├── unregister.sh                 # 项目注销脚本
 │   ├── service-control.sh            # 服务控制脚本
 │   └── analyze_commit_wrapper.sh     # 跨项目分析包装脚本
+├── .git-scripts-install-windows/     # Windows 安装脚本
+│   ├── git-analyzer-global-installer.bat
+│   ├── register.bat
+│   ├── unregister.bat
+│   ├── service-control.bat
+│   └── analyze_commit_wrapper.bat
 ├── .git-scripts-logs/                # 默认配置模板
 │   └── .git-analyzer-config.json
 ├── 项目A/                            # 项目A的分析日志
@@ -64,11 +76,13 @@ GitAnalyzer/                          # 全局服务主目录
 
 ### 第一步：全局安装（仅需一次）
 
+#### macOS / Linux
+
 在 GitAnalyzer 项目目录下运行：
 
 ```bash
 cd /path/to/GitAnalyzer
-bash .git-scripts-install/git-analyzer-global-installer-new.sh
+bash .git-scripts-install/git-analyzer-global-installer.sh
 ```
 
 安装完成后，重新加载 shell 配置：
@@ -76,6 +90,19 @@ bash .git-scripts-install/git-analyzer-global-installer-new.sh
 ```bash
 source ~/.zshrc  # 或 source ~/.bash_profile
 ```
+
+#### Windows
+
+在 GitAnalyzer 项目目录下运行：
+
+```batch
+cd C:\path\to\GitAnalyzer
+.git-scripts-install-windows\git-analyzer-global-installer.bat
+```
+
+然后重新打开命令提示符或 PowerShell。
+
+**详细 Windows 安装说明**: 查看 [README-WINDOWS.md](./README-WINDOWS.md)
 
 ### 第二步：查看服务状态
 

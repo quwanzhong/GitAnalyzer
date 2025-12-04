@@ -24,13 +24,20 @@ log_warning() { echo -e "${YELLOW}⚠️  $@${NC}"; }
 check_dependencies() {
     log_info "检查依赖..."
     
-    if ! command -v gemini &> /dev/null; then
-        log_error "Gemini CLI 未安装，请先安装: https://ai.google.dev/gemini-api/docs/cli"
+    if ! command -v curl &> /dev/null; then
+        log_error "curl 未安装，请先安装 curl"
         exit 1
     fi
     
     if ! command -v jq &> /dev/null; then
-        log_warning "jq 未安装，建议安装: brew install jq (用于配置管理)"
+        log_error "jq 未安装，请先安装: brew install jq"
+        log_error "jq 用于 JSON 配置解析和 API 响应处理"
+        exit 1
+    fi
+    
+    if ! command -v git &> /dev/null; then
+        log_error "Git 未安装，请先安装 Git"
+        exit 1
     fi
     
     log_success "依赖检查完成"

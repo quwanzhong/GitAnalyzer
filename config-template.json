@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "output_base_dir": "code_summaries",
+  "gemini_model": "gemini-1.5-flash",
+  "gemini_api_key": "YOUR_API_KEY_HERE",
+  "max_diff_size": 50000,
+  "timeout_seconds": 120,
+  "http_proxy": "",
+  "https_proxy": "",
+  "notification": {
+    "show_success": true,
+    "show_errors": true
+  }
+}

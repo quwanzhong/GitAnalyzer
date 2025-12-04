@@ -42,52 +42,43 @@ show_help() {
     echo "      启动/停止仅影响全局配置状态"
 }
 
-check_gemini_auth() {
-    log_info "检查 Gemini CLI 认证状态..."
+check_api_config() {
+    log_info "检查 Gemini API 配置..."
     
-    # 检查 Gemini CLI 是否安装
-    if ! command -v gemini &> /dev/null; then
-        log_error "Gemini CLI 未安装！"
-        echo ""
-        echo "请先安装 Gemini CLI:"
-        echo "  brew install gemini-cli"
-        echo ""
-        return 1
+    # 检查是否有项目注册
+    local has_projects=false
+    if [ -d "$GIT_ANALYZER_HOME" ]; then
+        for project_dir in "$GIT_ANALYZER_HOME"/*; do
+            [ ! -d "$project_dir" ] && continue
+            
+            local project_name=$(basename "$project_dir")
+            
+            # 排除系统目录
+            case "$project_name" in
+                .git|.git-scripts|.git-scripts-logs|.git-scripts-install|.git-scripts-install-windows|bin|config|.DS_Store|.gitignore|*.md)
+                    continue
+                    ;;
+            esac
+            
+            if [ -d "$project_dir/code_summaries" ] || [ -f "$project_dir/analyzer.log" ]; then
+                has_projects=true
+                break
+            fi
+        done
     fi
     
-    # 检查是否已认证（检查 OAuth 凭证文件）
-    if [ ! -f "$HOME/.gemini/oauth_creds.json" ]; then
-        log_warning "Gemini CLI 尚未认证！"
+    if [ "$has_projects" = false ]; then
+        log_warning "尚未注册任何项目"
         echo ""
-        echo "请按照以下步骤进行认证:"
+        echo "请在项目目录中运行:"
+        echo "   ${GREEN}register.sh${NC}"
         echo ""
-        echo "1. 运行认证命令:"
-        echo "   ${GREEN}gemini auth${NC}"
-        echo ""
-        echo "2. 按照提示完成 Google 账号登录"
-        echo ""
-        echo "3. 认证成功后，再次运行:"
-        echo "   ${GREEN}git-analyzer-start${NC}"
-        echo ""
-        return 1
     fi
     
-    # 简单测试 Gemini CLI 是否可用
-    log_info "测试 Gemini CLI 连接..."
-    if echo "你好" | timeout 10 gemini chat --no-stream 2>&1 | grep -q "error\|Error\|ERROR" 2>/dev/null; then
-        log_warning "Gemini CLI 认证可能已过期或配置有误"
-        echo ""
-        echo "建议重新认证:"
-        echo "   ${GREEN}gemini auth${NC}"
-        echo ""
-        read -p "是否继续启动服务？(y/N) " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            return 1
-        fi
-    else
-        log_success "Gemini CLI 认证正常"
-    fi
+    log_info "请确保在项目配置文件中设置了 Gemini API Key"
+    log_info "配置文件: 项目根目录/.git-scripts-logs/.git-analyzer-config.json"
+    log_info "API Key 获取: https://aistudio.google.com/app/apikey"
+    echo ""
     
     return 0
 }
@@ -97,17 +88,15 @@ start_service() {
     log_info "========== 启动 GitAnalyzer 全局服务 =========="
     echo ""
     
-    # 检查 Gemini CLI 认证
-    if ! check_gemini_auth; then
-        log_error "服务启动失败：Gemini CLI 未正确配置"
-        exit 1
-    fi
+    # 检查 API 配置
+    check_api_config
     
     echo ""
     mkdir -p "$(dirname "$SERVICE_STATUS_FILE")"
     echo "enabled" > "$SERVICE_STATUS_FILE"
     log_success "GitAnalyzer 全局服务已启用"
     log_info "所有已注册项目的提交都将被分析"
+    log_info "请确保在项目配置中设置了有效的 Gemini API Key"
     echo ""
 }
 

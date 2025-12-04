@@ -129,6 +129,8 @@ fi
 cd "$PROJECT_ROOT"
 COMMIT_HASH=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
 COMMIT_MESSAGE=$(git log -1 --pretty=%B 2>/dev/null || echo "unknown")
+COMMIT_AUTHOR=$(git log -1 --pretty=%an 2>/dev/null || echo "unknown")
+COMMIT_DATE=$(git log -1 --pretty=%ad --date=format:'%Y-%m-%d %H:%M:%S' 2>/dev/null || date '+%Y-%m-%d %H:%M:%S')
 
 log_info "提交哈希: $COMMIT_HASH"
 log_info "提交信息: $COMMIT_MESSAGE"
@@ -151,32 +153,51 @@ log_info "正在调用 Gemini API 进行分析..."
 log_info "使用模型: $GEMINI_MODEL"
 
 # 构建 prompt
-PROMPT="请分析以下 Git 提交的代码变更，并生成一份简洁的中文分析报告。
+PROMPT="请分析以下 Git 提交的代码差异，并严格按照要求的 Markdown 格式输出。
 
-**提交信息**: $COMMIT_MESSAGE
+**提交信息:**
+- 项目名称: $PROJECT_NAME
+- 提交哈希: $COMMIT_HASH
+- 提交信息: $COMMIT_MESSAGE
+- 提交作者: $COMMIT_AUTHOR
+- 提交时间: $COMMIT_DATE
 
-**代码差异**:
+**输出格式要求 (严格遵守):**
+
+# [简短功能标题，用于文件名，不超过50字符]
+
+---
+
+## ✨ 功能总结
+
+[简明扰要地总结本次提交实现的功能，3-5句话]
+
+## 🧠 AI 代码分析
+
+### 代码质量
+[评估代码质量、可读性、可维护性]
+
+### 潜在问题
+[指出可能存在的问题或风险]
+
+### 最佳实践
+[评估是否遵循最佳实践]
+
+## 🚀 优化建议
+
+[提供3-5条具体的、可操作的优化建议]
+
+## 📝 变更文件列表
+
+[列出本次提交涉及的主要文件]
+
+---
+
+**代码差异:**
+
 \`\`\`diff
 $DIFF_CONTENT
-\`\`\`
-
-请按以下格式输出：
-
-# 提交摘要
-
-[用一句话概括这次提交的主要内容]
-
-## 主要变更
-
-- [列出主要的代码变更]
-
-## 影响分析
-
-- [分析这些变更可能带来的影响]
-
-## 建议
-
-- [如果有的话，提供改进建议]"
+\`\`\`"
 
 # 调用 Gemini API（使用 v1 API）
 API_URL="https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}"
@@ -217,27 +238,27 @@ if curl -s -X POST "$API_URL" \
             TITLE="Commit_Summary_$(date +%H%M%S)"
         fi
         
-        # 保存分析结果
-        OUTPUT_DIR="$PROJECT_LOGS_DIR/code_summaries"
-        OUTPUT_FILE="$OUTPUT_DIR/${TITLE}_${COMMIT_HASH:0:7}.md"
+        # 创建目录结构
+        YEAR_MONTH=$(date +%Y%m)
+        DAY=$(date +%d)
+        SAVE_DIR="$PROJECT_LOGS_DIR/code_summaries/$YEAR_MONTH/$DAY"
+        mkdir -p "$SAVE_DIR"
         
-        cat > "$OUTPUT_FILE" << EOF
-# Git 提交分析报告
-
-**提交哈希**: $COMMIT_HASH
-**提交信息**: $COMMIT_MESSAGE
-**分析时间**: $(date '+%Y-%m-%d %H:%M:%S')
-
----
-
-$AI_RESULT
-EOF
+        # 保存文件
+        FILE_PATH="$SAVE_DIR/${TITLE}.md"
         
-        log_success "分析报告已保存: $OUTPUT_FILE"
+        if [ -f "$FILE_PATH" ]; then
+            FILE_PATH="$SAVE_DIR/${TITLE}_$(date +%H%M%S).md"
+        fi
         
-        # 显示通知
+        echo "$AI_RESULT" > "$FILE_PATH"
+        
+        log_success "分析结果已保存到: $FILE_PATH"
+        log_success "========== Git 代码分析完成 =========="
+        
+        # Mac 通知
         if command -v osascript &> /dev/null; then
-            osascript -e "display notification \"$COMMIT_MESSAGE\" with title \"✅ 代码分析完成\" subtitle \"$PROJECT_NAME\""
+            osascript -e "display notification \"项目: $PROJECT_NAME\" with title \"Git Analyzer\" subtitle \"$TITLE\"" 2>/dev/null || true
         fi
     else
         log_error "API 返回空结果或格式错误"

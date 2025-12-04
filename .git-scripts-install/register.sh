@@ -50,16 +50,33 @@ if [ -z "$ANALYZER_HOME" ]; then
     exit 0
 fi
 
-WRAPPER_SCRIPT="$ANALYZER_HOME/.git-scripts-install/analyze_commit_wrapper.sh"
-
-if [ ! -f "$WRAPPER_SCRIPT" ]; then
-    echo "⚠️  分析脚本不存在: $WRAPPER_SCRIPT"
-    exit 0
+# 检测操作系统
+if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" || "$OSTYPE" == "cygwin" ]]; then
+    # Windows 系统
+    ANALYZER_SCRIPT="$ANALYZER_HOME/.git-scripts-install-windows/analyze_with_api.bat"
+    
+    if [ ! -f "$ANALYZER_SCRIPT" ]; then
+        echo "⚠️  分析脚本不存在: $ANALYZER_SCRIPT"
+        exit 0
+    fi
+    
+    DIFF_CONTENT="$(git diff HEAD^ HEAD)"
+    
+    # 使用 cmd 执行 bat 脚本
+    cmd //c "\"$ANALYZER_SCRIPT\" \"$PROJECT_ROOT\" \"$DIFF_CONTENT\"" &
+else
+    # Mac/Linux 系统
+    ANALYZER_SCRIPT="$ANALYZER_HOME/.git-scripts-install/analyze_with_api.sh"
+    
+    if [ ! -f "$ANALYZER_SCRIPT" ]; then
+        echo "⚠️  分析脚本不存在: $ANALYZER_SCRIPT"
+        exit 0
+    fi
+    
+    DIFF_CONTENT="$(git diff HEAD^ HEAD)"
+    
+    nohup bash "$ANALYZER_SCRIPT" "$PROJECT_ROOT" "$DIFF_CONTENT" > /dev/null 2>&1 &
 fi
-
-DIFF_CONTENT="$(git diff HEAD^ HEAD)"
-
-nohup bash "$WRAPPER_SCRIPT" "$PROJECT_ROOT" "$DIFF_CONTENT" > /dev/null 2>&1 &
 
 echo "🚀 代码分析已在后台启动..."
 exit 0
@@ -77,9 +94,12 @@ if [ ! -f "$PROJECT_ROOT/.git-scripts-logs/.git-analyzer-config.json" ]; then
 {
   "enabled": true,
   "output_base_dir": "code_summaries",
-  "gemini_model": "gemini-2.0-flash-exp",
+  "gemini_model": "gemini-1.5-flash",
+  "gemini_api_key": "YOUR_API_KEY_HERE",
   "max_diff_size": 50000,
-  "timeout_seconds": 60
+  "timeout_seconds": 120,
+  "http_proxy": "",
+  "https_proxy": ""
 }
 CONFIG_EOF
     fi

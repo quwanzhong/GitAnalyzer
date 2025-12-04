@@ -13,3 +13,21 @@ code_summaries/
 # 忽略本地项目
 clinicalbloodpda
 analyzer.log
+
+# 忽略项目日志目录 (但保留目录结构)
+项目*/
+!.gitkeep
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# 临时文件
+*.tmp
+*.log
+*.swp
+*.swo
+*~
