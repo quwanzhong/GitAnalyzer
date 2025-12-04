@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "output_base_dir": "code_summaries",
+  "gemini_model": "gemini-2.0-flash-exp",
+  "log_file": ".git-analyzer.log",
+  "max_diff_size": 50000,
+  "timeout_seconds": 60,
+  "notification": {
+    "show_success": true,
+    "show_errors": true
+  }
+}
