@@ -18,7 +18,13 @@ log_success() { echo -e "${GREEN}✅ $@${NC}"; }
 log_error() { echo -e "${RED}❌ $@${NC}"; }
 log_warning() { echo -e "${YELLOW}⚠️  $@${NC}"; }
 
-GIT_ANALYZER_HOME="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
+# 从配置文件读取 GitAnalyzer 主目录
+if [ -f "$HOME/.git-analyzer/config/analyzer_home" ]; then
+    GIT_ANALYZER_HOME="$(cat "$HOME/.git-analyzer/config/analyzer_home")"
+else
+    # 如果配置文件不存在，尝试计算路径
+    GIT_ANALYZER_HOME="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
+fi
 SERVICE_STATUS_FILE="$HOME/.git-analyzer/config/service_status"
 
 show_help() {
@@ -141,15 +147,33 @@ list_projects() {
     
     COUNT=0
     for project_dir in "$GIT_ANALYZER_HOME"/*; do
-        if [ -d "$project_dir" ] && [ "$(basename "$project_dir")" != ".git" ] && [ "$(basename "$project_dir")" != ".git-scripts" ] && [ "$(basename "$project_dir")" != ".git-scripts-logs" ] && [ "$(basename "$project_dir")" != ".git-scripts-install" ]; then
-            project_name=$(basename "$project_dir")
-            if [ "$project_name" != "项目实现思路观察者.md" ] && [ "$project_name" != ".DS_Store" ] && [ "$project_name" != ".gitignore" ]; then
-                echo "  📁 $project_name"
-                if [ -d "$project_dir/logs" ] || [ -d "$project_dir/code_summaries" ]; then
-                    echo "     └─ 日志目录: $project_dir/"
-                fi
-                COUNT=$((COUNT + 1))
+        [ ! -d "$project_dir" ] && continue
+        
+        project_name=$(basename "$project_dir")
+        
+        # 排除系统目录
+        case "$project_name" in
+            .git|.git-scripts|.git-scripts-logs|.git-scripts-install|bin|config|.DS_Store|.gitignore|*.md)
+                continue
+                ;;
+        esac
+        
+        # 只显示包含 code_summaries 或 analyzer.log 的项目
+        if [ -d "$project_dir/code_summaries" ] || [ -f "$project_dir/analyzer.log" ]; then
+            echo "  📁 $project_name"
+            
+            # 显示项目信息
+            if [ -f "$project_dir/analyzer.log" ]; then
+                LAST_ANALYSIS=$(tail -1 "$project_dir/analyzer.log" 2>/dev/null | grep -oE '\[[0-9-]+ [0-9:]+\]' | head -1)
+                [ -n "$LAST_ANALYSIS" ] && echo "     ├─ 最后分析: $LAST_ANALYSIS"
             fi
+            
+            if [ -d "$project_dir/code_summaries" ]; then
+                REPORT_COUNT=$(find "$project_dir/code_summaries" -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+                [ "$REPORT_COUNT" -gt 0 ] && echo "     └─ 分析报告: $REPORT_COUNT 个"
+            fi
+            
+            COUNT=$((COUNT + 1))
         fi
     done
     
