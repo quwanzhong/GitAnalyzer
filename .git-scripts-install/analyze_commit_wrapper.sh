@@ -228,40 +228,115 @@ EOF
 log_info "正在调用 Gemini API 进行分析..."
 log_info "使用模型: $GEMINI_MODEL"
 log_info "超时设置: ${TIMEOUT}秒"
+log_info "当前目录: $(pwd)"
 
-# 调用 Gemini CLI，将stderr单独记录
-if run_with_timeout $TIMEOUT "gemini chat -m '$GEMINI_MODEL' < '$TEMP_PROMPT' > '$TEMP_PROMPT.result' 2> '$TEMP_PROMPT.error'"; then
-    AI_RESULT=$(cat "$TEMP_PROMPT.result")
-    
-    # 记录任何stderr输出（即使成功）
-    if [ -s "$TEMP_PROMPT.error" ]; then
-        log_warning "Gemini API 警告信息:"
-        while IFS= read -r line; do
-            log_warning "  $line"
-        done < "$TEMP_PROMPT.error"
+# 切换到项目目录（Gemini CLI 建议在项目目录中运行）
+cd "$PROJECT_ROOT"
+
+# 重试机制
+MAX_RETRIES=3
+RETRY_COUNT=0
+SUCCESS=false
+AI_RESULT=""
+
+while [ $RETRY_COUNT -lt $MAX_RETRIES ] && [ "$SUCCESS" = false ]; do
+    if [ $RETRY_COUNT -gt 0 ]; then
+        log_info "第 $((RETRY_COUNT + 1)) 次重试..."
+        sleep 5  # 重试前等待5秒
     fi
     
+    # 清理之前的临时文件
+    rm -f "$TEMP_PROMPT.result" "$TEMP_PROMPT.error"
+    
+    # 直接调用 Gemini CLI，使用后台进程+超时控制
+    gemini chat -m "$GEMINI_MODEL" < "$TEMP_PROMPT" > "$TEMP_PROMPT.result" 2> "$TEMP_PROMPT.error" &
+    GEMINI_PID=$!
+    
+    # 超时控制
+    COUNT=0
+    TIMED_OUT=false
+    
+    while kill -0 $GEMINI_PID 2>/dev/null; do
+        if [ $COUNT -ge $TIMEOUT ]; then
+            log_warning "Gemini API 调用超时 (${TIMEOUT}秒) - 尝试 $((RETRY_COUNT + 1))/$MAX_RETRIES"
+            kill -9 $GEMINI_PID 2>/dev/null
+            wait $GEMINI_PID 2>/dev/null
+            TIMED_OUT=true
+            
+            # 记录错误信息
+            if [ -f "$TEMP_PROMPT.error" ] && [ -s "$TEMP_PROMPT.error" ]; then
+                log_warning "错误详情:"
+                head -n 5 "$TEMP_PROMPT.error" | while IFS= read -r line; do
+                    log_warning "  $line"
+                done
+            fi
+            break
+        fi
+        sleep 1
+        ((COUNT++))
+        
+        # 每10秒显示一次进度
+        if [ $((COUNT % 10)) -eq 0 ]; then
+            log_info "已等待 ${COUNT} 秒..."
+        fi
+        
+        # 早期错误检测：如果在前5秒内有错误输出，立即记录
+        if [ $COUNT -le 5 ] && [ -f "$TEMP_PROMPT.error" ] && [ -s "$TEMP_PROMPT.error" ]; then
+            log_warning "检测到早期错误输出:"
+            head -n 10 "$TEMP_PROMPT.error" | while IFS= read -r line; do
+                log_warning "  $line"
+            done
+        fi
+    done
+    
+    # 如果没有超时，等待进程结束并获取退出码
+    if [ "$TIMED_OUT" = false ]; then
+        wait $GEMINI_PID
+        EXIT_CODE=$?
+        
+        if [ $EXIT_CODE -eq 0 ]; then
+            AI_RESULT=$(cat "$TEMP_PROMPT.result" 2>/dev/null)
+            
+            # 记录任何stderr输出（即使成功）
+            if [ -f "$TEMP_PROMPT.error" ] && [ -s "$TEMP_PROMPT.error" ]; then
+                log_warning "Gemini API 警告信息:"
+                while IFS= read -r line; do
+                    log_warning "  $line"
+                done < "$TEMP_PROMPT.error"
+            fi
+            
+            if [ -n "$AI_RESULT" ]; then
+                SUCCESS=true
+                log_success "AI 分析完成"
+                break
+            else
+                log_warning "Gemini API 返回空结果 - 尝试 $((RETRY_COUNT + 1))/$MAX_RETRIES"
+            fi
+        else
+            log_warning "Gemini API 调用失败 (退出码: $EXIT_CODE) - 尝试 $((RETRY_COUNT + 1))/$MAX_RETRIES"
+            
+            # 记录stderr内容
+            if [ -f "$TEMP_PROMPT.error" ] && [ -s "$TEMP_PROMPT.error" ]; then
+                log_warning "错误详情:"
+                head -n 5 "$TEMP_PROMPT.error" | while IFS= read -r line; do
+                    log_warning "  $line"
+                done
+            fi
+        fi
+    fi
+    
+    RETRY_COUNT=$((RETRY_COUNT + 1))
+done
+
+# 最终检查结果
+if [ "$SUCCESS" = true ] && [ -n "$AI_RESULT" ]; then
     rm -f "$TEMP_PROMPT" "$TEMP_PROMPT.result" "$TEMP_PROMPT.error"
-    
-    if [ -z "$AI_RESULT" ]; then
-        log_error "Gemini API 返回空结果"
-        exit 1
-    fi
-    
-    log_success "AI 分析完成"
 else
-    local exit_code=$?
+    log_error "Gemini API 调用最终失败，已重试 $MAX_RETRIES 次"
     
-    # 记录详细的错误信息
-    log_error "Gemini API 调用失败 (退出码: $exit_code)"
-    
-    if [ $exit_code -eq 124 ]; then
-        log_error "原因: 超时 (${TIMEOUT}秒)"
-    fi
-    
-    # 记录stderr内容
+    # 最后一次记录完整错误
     if [ -f "$TEMP_PROMPT.error" ] && [ -s "$TEMP_PROMPT.error" ]; then
-        log_error "错误详情:"
+        log_error "最终错误详情:"
         while IFS= read -r line; do
             log_error "  $line"
         done < "$TEMP_PROMPT.error"
