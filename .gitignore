@@ -1,0 +1,10 @@
+# Git 代码分析器
+
+# Git 代码分析器脚本目录
+.git-scripts/ 
+# Git 代码分析器日志目录
+.git-scripts-logs/ 
+# Git 代码分析器安装脚本目录
+.git_scripts_install/ 
+# 代码摘要目录
+code_summaries/ 
