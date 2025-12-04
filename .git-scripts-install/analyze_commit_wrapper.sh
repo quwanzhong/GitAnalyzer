@@ -101,6 +101,41 @@ if [ "$SERVICE_STATUS" != "enabled" ]; then
     exit 0
 fi
 
+# 跨平台超时函数
+run_with_timeout() {
+    local timeout_duration=$1
+    shift
+    local cmd="$@"
+    
+    # 检查是否有timeout命令（Linux）
+    if command -v timeout &> /dev/null; then
+        timeout "$timeout_duration" bash -c "$cmd"
+        return $?
+    # 检查是否有gtimeout命令（macOS with GNU coreutils）
+    elif command -v gtimeout &> /dev/null; then
+        gtimeout "$timeout_duration" bash -c "$cmd"
+        return $?
+    else
+        # macOS原生方案：使用后台进程+sleep
+        bash -c "$cmd" &
+        local pid=$!
+        local count=0
+        
+        while kill -0 $pid 2>/dev/null; do
+            if [ $count -ge $timeout_duration ]; then
+                kill -9 $pid 2>/dev/null
+                wait $pid 2>/dev/null
+                return 124  # timeout的标准退出码
+            fi
+            sleep 1
+            ((count++))
+        done
+        
+        wait $pid
+        return $?
+    fi
+}
+
 log_info "========== Git 代码分析开始 =========="
 log_info "项目: $PROJECT_NAME"
 log_info "项目路径: $PROJECT_ROOT"
@@ -191,11 +226,22 @@ $DIFF_CONTENT
 EOF
 
 log_info "正在调用 Gemini API 进行分析..."
+log_info "使用模型: $GEMINI_MODEL"
+log_info "超时设置: ${TIMEOUT}秒"
 
-# 调用 Gemini CLI
-if timeout $TIMEOUT gemini chat -m "$GEMINI_MODEL" < "$TEMP_PROMPT" > "$TEMP_PROMPT.result" 2>&1; then
+# 调用 Gemini CLI，将stderr单独记录
+if run_with_timeout $TIMEOUT "gemini chat -m '$GEMINI_MODEL' < '$TEMP_PROMPT' > '$TEMP_PROMPT.result' 2> '$TEMP_PROMPT.error'"; then
     AI_RESULT=$(cat "$TEMP_PROMPT.result")
-    rm -f "$TEMP_PROMPT" "$TEMP_PROMPT.result"
+    
+    # 记录任何stderr输出（即使成功）
+    if [ -s "$TEMP_PROMPT.error" ]; then
+        log_warning "Gemini API 警告信息:"
+        while IFS= read -r line; do
+            log_warning "  $line"
+        done < "$TEMP_PROMPT.error"
+    fi
+    
+    rm -f "$TEMP_PROMPT" "$TEMP_PROMPT.result" "$TEMP_PROMPT.error"
     
     if [ -z "$AI_RESULT" ]; then
         log_error "Gemini API 返回空结果"
@@ -205,8 +251,31 @@ if timeout $TIMEOUT gemini chat -m "$GEMINI_MODEL" < "$TEMP_PROMPT" > "$TEMP_PRO
     log_success "AI 分析完成"
 else
     local exit_code=$?
-    rm -f "$TEMP_PROMPT" "$TEMP_PROMPT.result"
+    
+    # 记录详细的错误信息
     log_error "Gemini API 调用失败 (退出码: $exit_code)"
+    
+    if [ $exit_code -eq 124 ]; then
+        log_error "原因: 超时 (${TIMEOUT}秒)"
+    fi
+    
+    # 记录stderr内容
+    if [ -f "$TEMP_PROMPT.error" ] && [ -s "$TEMP_PROMPT.error" ]; then
+        log_error "错误详情:"
+        while IFS= read -r line; do
+            log_error "  $line"
+        done < "$TEMP_PROMPT.error"
+    fi
+    
+    # 记录stdout内容（可能包含部分响应）
+    if [ -f "$TEMP_PROMPT.result" ] && [ -s "$TEMP_PROMPT.result" ]; then
+        log_error "部分响应:"
+        head -n 10 "$TEMP_PROMPT.result" | while IFS= read -r line; do
+            log_error "  $line"
+        done
+    fi
+    
+    rm -f "$TEMP_PROMPT" "$TEMP_PROMPT.result" "$TEMP_PROMPT.error"
     exit 1
 fi
 
