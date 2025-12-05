@@ -75,9 +75,40 @@ check_api_config() {
         echo ""
     fi
     
-    log_info "请确保在项目配置文件中设置了 Gemini API Key"
-    log_info "配置文件: 项目根目录/.git-scripts-logs/.git-analyzer-config.json"
-    log_info "API Key 获取: https://aistudio.google.com/app/apikey"
+    # 检查配置模板中是否有 API Key
+    CONFIG_TEMPLATE="$GIT_ANALYZER_HOME/.git-scripts-logs/.git-analyzer-config.json"
+    if [ -f "$CONFIG_TEMPLATE" ]; then
+        API_KEY=$(jq -r '.gemini_api_key // ""' "$CONFIG_TEMPLATE" 2>/dev/null)
+        if [ -z "$API_KEY" ] || [ "$API_KEY" = "null" ]; then
+            log_warning "未检测到 Gemini API Key 配置"
+            echo ""
+            read -p "是否现在配置 API Key? (Y/n): " CONFIGURE_NOW
+            
+            if [ -z "$CONFIGURE_NOW" ] || [ "$CONFIGURE_NOW" = "Y" ] || [ "$CONFIGURE_NOW" = "y" ]; then
+                # 调用配置向导
+                SETUP_SCRIPT="$GIT_ANALYZER_HOME/setup_gemini_api.sh"
+                if [ -f "$SETUP_SCRIPT" ]; then
+                    bash "$SETUP_SCRIPT"
+                else
+                    log_error "配置脚本不存在: $SETUP_SCRIPT"
+                    log_info "请手动配置: $CONFIG_TEMPLATE"
+                    log_info "API Key 获取: https://aistudio.google.com/app/apikey"
+                fi
+            else
+                log_info "请手动配置 API Key"
+                log_info "配置文件: $CONFIG_TEMPLATE"
+                log_info "API Key 获取: https://aistudio.google.com/app/apikey"
+            fi
+            echo ""
+        else
+            log_success "已检测到 API Key 配置"
+        fi
+    else
+        log_warning "配置模板不存在: $CONFIG_TEMPLATE"
+        log_info "请确保在项目配置文件中设置了 Gemini API Key"
+        log_info "配置文件: 项目根目录/.git-scripts-logs/.git-analyzer-config.json"
+        log_info "API Key 获取: https://aistudio.google.com/app/apikey"
+    fi
     echo ""
     
     return 0
@@ -96,7 +127,17 @@ start_service() {
     echo "enabled" > "$SERVICE_STATUS_FILE"
     log_success "GitAnalyzer 全局服务已启用"
     log_info "所有已注册项目的提交都将被分析"
-    log_info "请确保在项目配置中设置了有效的 Gemini API Key"
+    
+    # 显示当前配置的 API Key 信息
+    CONFIG_TEMPLATE="$GIT_ANALYZER_HOME/.git-scripts-logs/.git-analyzer-config.json"
+    if [ -f "$CONFIG_TEMPLATE" ]; then
+        API_KEY=$(jq -r '.gemini_api_key // ""' "$CONFIG_TEMPLATE" 2>/dev/null)
+        if [ -n "$API_KEY" ] && [ "$API_KEY" != "null" ]; then
+            log_success "当前 API Key: ${API_KEY:0:20}...${API_KEY: -4}"
+        else
+            log_warning "未配置 API Key，请运行: setup_gemini_api.sh"
+        fi
+    fi
     echo ""
 }
 

@@ -41,20 +41,26 @@ cd C:\path\to\GitAnalyzer
 4. 部署新的分析脚本
 
 **手动配置方式：**
-如果配置向导不可用，你可以手动创建项目配置文件：
-```batch
-REM 在项目根目录创建配置文件
-mkdir .git-scripts-logs
-echo { > .git-scripts-logs\.git-analyzer-config.json
-echo   "enabled": true, >> .git-scripts-logs\.git-analyzer-config.json
-echo   "output_base_dir": "code_summaries", >> .git-scripts-logs\.git-analyzer-config.json
-echo   "gemini_model": "gemini-2.0-flash", >> .git-scripts-logs\.git-analyzer-config.json
-echo   "gemini_api_key": "YOUR_API_KEY_HERE", >> .git-scripts-logs\.git-analyzer-config.json
-echo   "max_diff_size": 50000, >> .git-scripts-logs\.git-analyzer-config.json
-echo   "timeout_seconds": 120, >> .git-scripts-logs\.git-analyzer-config.json
-echo   "http_proxy": "http://127.0.0.1:7897", >> .git-scripts-logs\.git-analyzer-config.json
-echo   "https_proxy": "http://127.0.0.1:7897" >> .git-scripts-logs\.git-analyzer-config.json
-echo } >> .git-scripts-logs\.git-analyzer-config.json
+如果配置向导不可用，你可以手动创建配置模板文件：
+
+编辑文件：`C:\path\to\GitAnalyzer\.git-scripts-logs\.git-analyzer-config.json`
+
+```json
+{
+  "enabled": true,
+  "output_base_dir": "code_summaries",
+  "gemini_model": "gemini-2.0-flash",
+  "gemini_api_key": "",
+  "http_proxy": "http://127.0.0.1:7897",
+  "https_proxy": "http://127.0.0.1:7897",
+  "log_file": ".git-analyzer.log",
+  "max_diff_size": 50000,
+  "timeout_seconds": 60,
+  "notification": {
+    "show_success": true,
+    "show_errors": true
+  }
+}
 ```
 
 ### 步骤 3: 全局安装 GitAnalyzer

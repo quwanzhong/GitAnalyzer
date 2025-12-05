@@ -121,22 +121,29 @@ cd /path/to/GitAnalyzer
 4. 部署新的分析脚本
 
 **手动配置方式：**
-如果配置向导不可用，你可以手动编辑项目配置文件：
+如果配置向导不可用，你可以手动编辑配置模板文件：
 ```bash
-# 在项目根目录创建配置文件
-mkdir -p .git-scripts-logs
-cat > .git-scripts-logs/.git-analyzer-config.json << 'EOF'
+# 编辑配置模板
+vim /path/to/GitAnalyzer/.git-scripts-logs/.git-analyzer-config.json
+```
+
+配置示例：
+```json
 {
   "enabled": true,
   "output_base_dir": "code_summaries",
   "gemini_model": "gemini-2.0-flash",
-  "gemini_api_key": "YOUR_API_KEY_HERE",
-  "max_diff_size": 50000,
-  "timeout_seconds": 120,
+  "gemini_api_key": "",
   "http_proxy": "http://127.0.0.1:7897",
-  "https_proxy": "http://127.0.0.1:7897"
+  "https_proxy": "http://127.0.0.1:7897",
+  "log_file": ".git-analyzer.log",
+  "max_diff_size": 50000,
+  "timeout_seconds": 60,
+  "notification": {
+    "show_success": true,
+    "show_errors": true
+  }
 }
-EOF
 ```
 
 ### 第三步：查看服务状态

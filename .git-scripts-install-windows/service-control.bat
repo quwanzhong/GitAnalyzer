@@ -75,9 +75,43 @@ if %HAS_PROJECTS%==0 (
     echo.
 )
 
-call :log_info "请确保在项目配置文件中设置了 Gemini API Key"
-call :log_info "配置文件: 项目根目录\.git-scripts-logs\.git-analyzer-config.json"
-call :log_info "API Key 获取: https://aistudio.google.com/app/apikey"
+REM 检查配置模板中是否有 API Key
+set CONFIG_TEMPLATE=%GIT_ANALYZER_HOME%\.git-scripts-logs\.git-analyzer-config.json
+if exist "%CONFIG_TEMPLATE%" (
+    REM 使用 PowerShell 检查 API Key
+    for /f "delims=" %%i in ('powershell -Command "(Get-Content '%CONFIG_TEMPLATE%' | ConvertFrom-Json).gemini_api_key"') do set API_KEY=%%i
+    
+    if "!API_KEY!"=="" (
+        call :log_warning "未检测到 Gemini API Key 配置"
+        echo.
+        set /p CONFIGURE_NOW="是否现在配置 API Key? (Y/n): "
+        
+        if "!CONFIGURE_NOW!"=="" set CONFIGURE_NOW=Y
+        if /i "!CONFIGURE_NOW!"=="Y" (
+            REM 调用配置向导
+            set SETUP_SCRIPT=%GIT_ANALYZER_HOME%\setup_gemini_api.sh
+            if exist "!SETUP_SCRIPT!" (
+                bash "!SETUP_SCRIPT!"
+            ) else (
+                call :log_error "配置脚本不存在: !SETUP_SCRIPT!"
+                call :log_info "请手动配置: %CONFIG_TEMPLATE%"
+                call :log_info "API Key 获取: https://aistudio.google.com/app/apikey"
+            )
+        ) else (
+            call :log_info "请手动配置 API Key"
+            call :log_info "配置文件: %CONFIG_TEMPLATE%"
+            call :log_info "API Key 获取: https://aistudio.google.com/app/apikey"
+        )
+        echo.
+    ) else (
+        call :log_success "已检测到 API Key 配置"
+    )
+) else (
+    call :log_warning "配置模板不存在: %CONFIG_TEMPLATE%"
+    call :log_info "请确保在项目配置文件中设置了 Gemini API Key"
+    call :log_info "配置文件: 项目根目录\.git-scripts-logs\.git-analyzer-config.json"
+    call :log_info "API Key 获取: https://aistudio.google.com/app/apikey"
+)
 echo.
 
 exit /b 0
@@ -95,7 +129,19 @@ if not exist "%USERPROFILE%\.git-analyzer\config" mkdir "%USERPROFILE%\.git-anal
 echo enabled > "%SERVICE_STATUS_FILE%"
 call :log_success "GitAnalyzer 全局服务已启用"
 call :log_info "所有已注册项目的提交都将被分析"
-call :log_info "请确保在项目配置中设置了有效的 Gemini API Key"
+
+REM 显示当前配置的 API Key 信息
+set CONFIG_TEMPLATE=%GIT_ANALYZER_HOME%\.git-scripts-logs\.git-analyzer-config.json
+if exist "%CONFIG_TEMPLATE%" (
+    for /f "delims=" %%i in ('powershell -Command "(Get-Content '%CONFIG_TEMPLATE%' | ConvertFrom-Json).gemini_api_key"') do set API_KEY=%%i
+    if not "!API_KEY!"=="" (
+        set KEY_START=!API_KEY:~0,20!
+        set KEY_END=!API_KEY:~-4!
+        call :log_success "当前 API Key: !KEY_START!...!KEY_END!"
+    ) else (
+        call :log_warning "未配置 API Key，请运行: setup_gemini_api.sh"
+    )
+)
 echo.
 exit /b 0
 
