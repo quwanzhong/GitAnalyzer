@@ -4,7 +4,7 @@
 # 项目注册脚本 - 将当前项目注册到 GitAnalyzer
 # ============================================
 
-set -e
+# 注意: 不使用 set -e，因为我们需要在分析失败时继续执行
 
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -113,35 +113,31 @@ log_info "配置文件: $PROJECT_ROOT/.git-scripts-logs/.git-analyzer-config.jso
 log_info "日志目录: $ANALYZER_HOME/$PROJECT_NAME/"
 log_info "使用 'unregister.sh' 可以注销分析器"
 
-# 自动分析最后一次提交
-log_info "正在分析最后一次提交..."
+# 自动分析最近一次提交
+log_info "正在分析最近一次提交..."
 ANALYZER_SCRIPT="$ANALYZER_HOME/.git-scripts-install/analyze_with_api.sh"
 
 if [ -f "$ANALYZER_SCRIPT" ]; then
-    cd "$PROJECT_ROOT"
+    cd "$PROJECT_ROOT" || exit 1
     LAST_COMMIT=$(git rev-parse HEAD 2>/dev/null)
     
     if [ -n "$LAST_COMMIT" ]; then
+        log_info "检测到提交: ${LAST_COMMIT:0:8}"
         DIFF_CONTENT="$(git diff HEAD^ HEAD 2>/dev/null)"
         
         if [ -n "$DIFF_CONTENT" ]; then
-            # 创建临时日志文件用于捕获错误
-            TEMP_LOG=$(mktemp)
-            nohup bash "$ANALYZER_SCRIPT" "$PROJECT_ROOT" "$DIFF_CONTENT" > "$TEMP_LOG" 2>&1 &
-            ANALYSIS_PID=$!
+            DIFF_SIZE=${#DIFF_CONTENT}
+            log_info "代码差异大小: $DIFF_SIZE 字符"
+            log_info "开始分析..."
             
-            # 等待2秒检查是否有立即错误
-            sleep 2
-            if kill -0 $ANALYSIS_PID 2>/dev/null; then
-                log_success "最后一次提交分析已在后台启动 (PID: $ANALYSIS_PID)"
-                log_info "分析日志: $TEMP_LOG"
+            if bash "$ANALYZER_SCRIPT" "$PROJECT_ROOT" "$DIFF_CONTENT"; then
+                log_success "最近一次提交分析完成"
             else
-                log_error "分析启动失败，错误信息:"
-                cat "$TEMP_LOG"
-                rm -f "$TEMP_LOG"
+                log_error "分析失败，请检查配置和网络连接"
+                log_info "查看详细日志: $ANALYZER_HOME/$PROJECT_NAME/analyzer.log"
             fi
         else
-            log_info "最后一次提交没有代码变更，跳过分析"
+            log_info "最近一次提交没有代码变更，跳过分析"
         fi
     else
         log_info "仓库中没有提交记录，跳过分析"

@@ -33,7 +33,6 @@ set "LOG_FILE=%PROJECT_LOGS_DIR%\analyzer.log"
 
 REM 创建项目日志目录
 if not exist "%PROJECT_LOGS_DIR%" mkdir "%PROJECT_LOGS_DIR%"
-if not exist "%PROJECT_LOGS_DIR%\logs" mkdir "%PROJECT_LOGS_DIR%\logs"
 if not exist "%PROJECT_LOGS_DIR%\code_summaries" mkdir "%PROJECT_LOGS_DIR%\code_summaries"
 
 REM 日志函数
@@ -202,7 +201,7 @@ powershell -Command "$json = Get-Content '%TEMP_RESPONSE%' -Raw | ConvertFrom-Js
 call :log_success "AI 分析完成"
 
 REM 提取标题 (使用 PowerShell)
-for /f "delims=" %%i in ('powershell -Command "(Get-Content '%TEMP_RESULT%' -Encoding UTF8 | Select-String -Pattern ''^#'' | Select-Object -First 1).Line -replace ''^# '', '''' -replace ''[^a-zA-Z0-9\u4e00-\u9fa5_-]'', ''_'' | ForEach-Object { $_.Substring(0, [Math]::Min(50, $_.Length)) }"') do set "TITLE=%%i"
+for /f "delims=" %%i in ('powershell -Command "$line = (Get-Content '%TEMP_RESULT%' -Encoding UTF8 | Select-String -Pattern ''^#'' | Select-Object -First 1).Line; if ($line) { $title = $line -replace ''^# '', '''' -replace ''^\s+'', '''' -replace ''\s+$'', ''''; $title = $title -replace ''[/\\:*?\"<>|]'', ''_''; $title.Substring(0, [Math]::Min(50, $title.Length)) }"') do set "TITLE=%%i"
 
 if "%TITLE%"=="" (
     set "TITLE=代码提交摘要"

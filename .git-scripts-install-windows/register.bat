@@ -119,8 +119,8 @@ call :log_info "配置文件: %PROJECT_ROOT%\.git-scripts-logs\.git-analyzer-con
 call :log_info "日志目录: %ANALYZER_HOME%\%PROJECT_NAME%\"
 call :log_info "使用 'unregister' 可以注销分析器"
 
-REM 自动分析最后一次提交
-call :log_info "正在分析最后一次提交..."
+REM 自动分析最近一次提交
+call :log_info "正在分析最近一次提交..."
 set "ANALYZER_SCRIPT=%ANALYZER_HOME%\.git-scripts-install-windows\analyze_with_api.bat"
 
 if exist "%ANALYZER_SCRIPT%" (
@@ -134,25 +134,17 @@ if exist "%ANALYZER_SCRIPT%" (
         for %%A in ("!TEMP_DIFF!") do set "DIFF_SIZE=%%~zA"
         
         if not "!DIFF_SIZE!"=="0" (
-            REM 创建临时日志文件用于捕获错误
-            set "TEMP_LOG=%TEMP%\git_analyzer_log_%RANDOM%.txt"
-            start /B cmd /c ""%ANALYZER_SCRIPT%" "%PROJECT_ROOT%" > "!TEMP_LOG!" 2>&1"
-            
-            REM 等待2秒检查是否有立即错误
-            timeout /t 2 /nobreak >nul
-            
-            REM 检查日志文件是否包含错误
-            findstr /C:"错误" /C:"失败" /C:"error" /C:"Error" "!TEMP_LOG!" >nul 2>&1
+            REM 直接同步执行，显示完整输出
+            call :log_info "开始分析..."
+            call "%ANALYZER_SCRIPT%" "%PROJECT_ROOT%"
             if !errorlevel! equ 0 (
-                call :log_error "分析启动失败，错误信息:"
-                type "!TEMP_LOG!"
-                del "!TEMP_LOG!" 2>nul
+                call :log_success "最近一次提交分析完成"
             ) else (
-                call :log_success "最后一次提交分析已在后台启动"
-                call :log_info "分析日志: !TEMP_LOG!"
+                call :log_error "分析失败，请检查配置和网络连接"
+                call :log_info "查看详细日志: %ANALYZER_HOME%\%PROJECT_NAME%\analyzer.log"
             )
         ) else (
-            call :log_info "最后一次提交没有代码变更，跳过分析"
+            call :log_info "最近一次提交没有代码变更，跳过分析"
         )
         
         del "!TEMP_DIFF!" 2>nul

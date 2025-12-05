@@ -59,13 +59,21 @@ create_global_structure() {
 install_scripts() {
     log_info "安装脚本到全局目录..."
     
+    # 复制所有必要的脚本
     cp "$GIT_ANALYZER_HOME/.git-scripts-install/register.sh" "$GLOBAL_INSTALL_DIR/bin/"
     cp "$GIT_ANALYZER_HOME/.git-scripts-install/unregister.sh" "$GLOBAL_INSTALL_DIR/bin/"
     cp "$GIT_ANALYZER_HOME/.git-scripts-install/service-control.sh" "$GLOBAL_INSTALL_DIR/bin/"
+    cp "$GIT_ANALYZER_HOME/.git-scripts-install/analyze_with_api.sh" "$GLOBAL_INSTALL_DIR/bin/"
+    cp "$GIT_ANALYZER_HOME/.git-scripts-install/test-api.sh" "$GLOBAL_INSTALL_DIR/bin/"
+    cp "$GIT_ANALYZER_HOME/.git-scripts-install/sync-to-global.sh" "$GLOBAL_INSTALL_DIR/bin/"
     
     chmod +x "$GLOBAL_INSTALL_DIR/bin/"*.sh
     
     log_success "脚本安装完成"
+    
+    # 显示脚本版本信息
+    local register_lines=$(wc -l < "$GLOBAL_INSTALL_DIR/bin/register.sh")
+    log_info "register.sh: $register_lines 行"
 }
 
 add_to_path() {
@@ -88,6 +96,7 @@ add_to_path() {
         echo "alias git-analyzer-stop='bash $GLOBAL_INSTALL_DIR/bin/service-control.sh stop'" >> "$shell_rc"
         echo "alias git-analyzer-status='bash $GLOBAL_INSTALL_DIR/bin/service-control.sh status'" >> "$shell_rc"
         echo "alias git-analyzer-list='bash $GLOBAL_INSTALL_DIR/bin/service-control.sh list'" >> "$shell_rc"
+        echo "alias git-analyzer-sync='bash $GLOBAL_INSTALL_DIR/bin/sync-to-global.sh'" >> "$shell_rc"
         log_success "已添加到 $shell_rc"
     else
         log_info "环境变量已配置"

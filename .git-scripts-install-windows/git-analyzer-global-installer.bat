@@ -236,10 +236,10 @@ echo ├── .git-scripts\               # 核心分析脚本
 echo ├── .git-scripts-logs\          # 默认配置模板
 echo ├── .git-scripts-install-windows\  # Windows 安装脚本
 echo ├── 项目A\                      # 项目A的分析日志
-echo │   ├── logs\
-echo │   └── code_summaries\
+echo │   ├── analyzer.log            # 分析日志文件
+echo │   └── code_summaries\         # 分析报告目录
 echo ├── 项目B\                      # 项目B的分析日志
-echo │   ├── logs\
+echo │   ├── analyzer.log
 echo │   └── code_summaries\
 echo └── ...
 echo.

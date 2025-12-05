@@ -31,7 +31,6 @@ LOG_FILE="$PROJECT_LOGS_DIR/analyzer.log"
 
 # 创建项目日志目录
 mkdir -p "$PROJECT_LOGS_DIR"
-mkdir -p "$PROJECT_LOGS_DIR/logs"
 mkdir -p "$PROJECT_LOGS_DIR/code_summaries"
 
 # 颜色定义
@@ -218,13 +217,14 @@ cat > "$TEMP_REQUEST" << EOF
 EOF
 
 # 发送请求
-if curl -s -X POST "$API_URL" \
+HTTP_CODE=$(curl -s -w "%{http_code}" -X POST "$API_URL" \
     -H "Content-Type: application/json" \
     -d @"$TEMP_REQUEST" \
     --connect-timeout 30 \
     --max-time $TIMEOUT \
-    -o "$TEMP_RESPONSE"; then
-    
+    -o "$TEMP_RESPONSE")
+
+if [ "$HTTP_CODE" = "200" ]; then
     # 解析响应
     AI_RESULT=$(jq -r '.candidates[0].content.parts[0].text' "$TEMP_RESPONSE" 2>/dev/null)
     
@@ -232,7 +232,10 @@ if curl -s -X POST "$API_URL" \
         log_success "AI 分析完成"
         
         # 提取标题
-        TITLE=$(echo "$AI_RESULT" | grep -m 1 "^#" | sed 's/^# //' | sed 's/[^a-zA-Z0-9\u4e00-\u9fa5_-]/_/g' | cut -c1-50)
+        TITLE=$(echo "$AI_RESULT" | grep -m 1 "^#" | sed 's/^# //' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        
+        # 清理标题：移除特殊字符但保留中文、英文、数字、下划线和连字符
+        TITLE=$(echo "$TITLE" | tr -d '\r\n' | sed 's/[\/\\:*?"<>|]/_/g' | cut -c1-50)
         
         if [ -z "$TITLE" ]; then
             TITLE="代码提交摘要"
@@ -259,10 +262,24 @@ if curl -s -X POST "$API_URL" \
         fi
     else
         log_error "API 返回空结果或格式错误"
-        log_error "响应内容: $(cat "$TEMP_RESPONSE")"
+        ERROR_MSG=$(jq -r '.error.message // "未知错误"' "$TEMP_RESPONSE" 2>/dev/null)
+        log_error "错误信息: $ERROR_MSG"
+        log_error "完整响应: $(cat "$TEMP_RESPONSE")"
+        exit 1
     fi
+elif [ -z "$HTTP_CODE" ]; then
+    log_error "API 调用失败: 网络连接超时或无法访问"
+    log_error "请检查:"
+    log_error "  1. 网络连接是否正常"
+    log_error "  2. 代理设置是否正确 (当前: HTTP=$HTTP_PROXY, HTTPS=$HTTPS_PROXY)"
+    log_error "  3. API Key 是否有效"
+    exit 1
 else
-    log_error "API 调用失败"
+    log_error "API 调用失败: HTTP $HTTP_CODE"
+    ERROR_MSG=$(jq -r '.error.message // "未知错误"' "$TEMP_RESPONSE" 2>/dev/null)
+    log_error "错误信息: $ERROR_MSG"
+    log_error "完整响应: $(cat "$TEMP_RESPONSE")"
+    exit 1
 fi
 
 # 清理临时文件
