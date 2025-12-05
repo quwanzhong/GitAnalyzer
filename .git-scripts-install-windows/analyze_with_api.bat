@@ -123,7 +123,7 @@ REM 调用 Gemini API
 call :log_info "正在调用 Gemini API 进行分析..."
 call :log_info "使用模型: %GEMINI_MODEL%"
 
-set "API_URL=https://generativelanguage.googleapis.com/v1/models/%GEMINI_MODEL%:generateContent?key=%GEMINI_API_KEY%"
+set "API_URL=https://generativelanguage.googleapis.com/v1beta/models/%GEMINI_MODEL%:generateContent?key=%GEMINI_API_KEY%"
 set "TEMP_REQUEST=%TEMP%\gemini_request_%RANDOM%.json"
 set "TEMP_RESPONSE=%TEMP%\gemini_response_%RANDOM%.json"
 

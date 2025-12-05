@@ -199,8 +199,8 @@ PROMPT="请分析以下 Git 提交的代码差异，并严格按照要求的 Mar
 $DIFF_CONTENT
 \`\`\`"
 
-# 调用 Gemini API（使用 v1 API）
-API_URL="https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}"
+# 调用 Gemini API（使用 v1beta API）
+API_URL="https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}"
 
 # 创建临时文件
 TEMP_REQUEST=$(mktemp)
