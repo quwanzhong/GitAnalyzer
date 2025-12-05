@@ -196,7 +196,6 @@ echo -e "${YELLOW}步骤 5: 更新分析脚本${NC}"
 # 复制新的分析脚本
 cp /Users/qwz/GitAnalyzer/.git-scripts-install/analyze_with_api.sh ~/.git-analyzer/bin/analyze_commit_wrapper.sh
 chmod +x ~/.git-analyzer/bin/analyze_commit_wrapper.sh
-COMMENT
 
 echo -e "${GREEN}✅ 已更新分析脚本${NC}"
 

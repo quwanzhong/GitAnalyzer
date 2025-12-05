@@ -73,7 +73,42 @@ cd C:\path\to\GitAnalyzer
 # 重新打开命令提示符或 PowerShell
 ```
 
-### 步骤 4: 在项目中注册
+### 步骤 4: 查看服务状态
+
+```batch
+git-analyzer-status
+```
+
+### 步骤 5: 列出已注册项目
+
+```batch
+git-analyzer-list
+```
+
+查看当前已经注册到 GitAnalyzer 的所有项目。
+
+### 步骤 6: 启动服务
+
+```batch
+git-analyzer-start
+```
+
+启动 GitAnalyzer 全局服务，所有已注册项目的提交都将被自动分析。
+
+**⚠️ 重要提示：**
+- 如果首次启动时未配置 API Key，系统会提示你进行配置
+- 配置完成后，需要重新运行 `git-analyzer-start` 重启服务
+- 重启后会自动更新所有已注册项目的全局配置
+
+### 步骤 7（可选）: 停止服务
+
+```batch
+git-analyzer-stop
+```
+
+如需暂停分析，可以停止服务。
+
+### 步骤 8: 在项目中注册
 
 ```batch
 # 进入你的项目目录
@@ -81,12 +116,6 @@ cd C:\path\to\your\project
 
 # 注册到 GitAnalyzer
 register
-```
-
-### 步骤 5: 启动服务
-
-```batch
-git-analyzer-start
 ```
 
 ## 🎮 常用命令

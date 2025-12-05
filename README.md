@@ -158,7 +158,36 @@ git-analyzer-status
 bash ~/.git-analyzer/bin/service-control.sh status
 ```
 
-### 第四步：在项目中注册
+### 第四步：列出已注册项目
+
+```bash
+git-analyzer-list
+```
+
+查看当前已经注册到 GitAnalyzer 的所有项目。
+
+### 第五步：启动服务
+
+```bash
+git-analyzer-start
+```
+
+启动 GitAnalyzer 全局服务，所有已注册项目的提交都将被自动分析。
+
+**⚠️ 重要提示：**
+- 如果首次启动时未配置 API Key，系统会提示你进行配置
+- 配置完成后，需要重新运行 `git-analyzer-start` 重启服务
+- 重启后会自动更新所有已注册项目的全局配置
+
+### 第六步（可选）：停止服务
+
+```bash
+git-analyzer-stop
+```
+
+如需暂停分析，可以停止服务。
+
+### 第七步：在项目中注册
 
 进入你想要分析的项目目录（与 .git 同级），运行：
 
@@ -173,7 +202,7 @@ register.sh
 bash ~/.git-analyzer/bin/register.sh
 ```
 
-### 第五步：正常使用 Git
+### 第八步：正常使用 Git
 
 ```bash
 git add .
@@ -181,7 +210,7 @@ git commit -m "your commit message"
 # 代码分析会自动在后台运行
 ```
 
-### 第六步：查看分析结果
+### 第九步：查看分析结果
 
 分析结果保存在 GitAnalyzer 目录下：
 
