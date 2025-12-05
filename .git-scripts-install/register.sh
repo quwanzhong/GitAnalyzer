@@ -112,3 +112,27 @@ log_success "注册完成！"
 log_info "配置文件: $PROJECT_ROOT/.git-scripts-logs/.git-analyzer-config.json"
 log_info "日志目录: $ANALYZER_HOME/$PROJECT_NAME/"
 log_info "使用 'unregister.sh' 可以注销分析器"
+
+# 自动分析最后一次提交
+log_info "正在分析最后一次提交..."
+ANALYZER_SCRIPT="$ANALYZER_HOME/.git-scripts-install/analyze_with_api.sh"
+
+if [ -f "$ANALYZER_SCRIPT" ]; then
+    cd "$PROJECT_ROOT"
+    LAST_COMMIT=$(git rev-parse HEAD 2>/dev/null)
+    
+    if [ -n "$LAST_COMMIT" ]; then
+        DIFF_CONTENT="$(git diff HEAD^ HEAD 2>/dev/null)"
+        
+        if [ -n "$DIFF_CONTENT" ]; then
+            nohup bash "$ANALYZER_SCRIPT" "$PROJECT_ROOT" "$DIFF_CONTENT" > /dev/null 2>&1 &
+            log_success "最后一次提交分析已在后台启动"
+        else
+            log_info "最后一次提交没有代码变更，跳过分析"
+        fi
+    else
+        log_info "仓库中没有提交记录，跳过分析"
+    fi
+else
+    log_error "分析脚本不存在: $ANALYZER_SCRIPT"
+fi

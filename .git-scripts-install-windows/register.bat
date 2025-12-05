@@ -118,6 +118,35 @@ call :log_info "配置文件: %PROJECT_ROOT%\.git-scripts-logs\.git-analyzer-con
 call :log_info "日志目录: %ANALYZER_HOME%\%PROJECT_NAME%\"
 call :log_info "使用 'unregister' 可以注销分析器"
 
+REM 自动分析最后一次提交
+call :log_info "正在分析最后一次提交..."
+set "ANALYZER_SCRIPT=%ANALYZER_HOME%\.git-scripts-install-windows\analyze_with_api.bat"
+
+if exist "%ANALYZER_SCRIPT%" (
+    cd /d "%PROJECT_ROOT%"
+    for /f "delims=" %%i in ('git rev-parse HEAD 2^>nul') do set "LAST_COMMIT=%%i"
+    
+    if not "!LAST_COMMIT!"=="" (
+        set "TEMP_DIFF=%TEMP%\git_diff_check_%RANDOM%.txt"
+        git diff HEAD^ HEAD > "!TEMP_DIFF!" 2>nul
+        
+        for %%A in ("!TEMP_DIFF!") do set "DIFF_SIZE=%%~zA"
+        
+        if not "!DIFF_SIZE!"=="0" (
+            start /B cmd /c ""%ANALYZER_SCRIPT%" "%PROJECT_ROOT%""
+            call :log_success "最后一次提交分析已在后台启动"
+        ) else (
+            call :log_info "最后一次提交没有代码变更，跳过分析"
+        )
+        
+        del "!TEMP_DIFF!" 2>nul
+    ) else (
+        call :log_info "仓库中没有提交记录，跳过分析"
+    )
+) else (
+    call :log_error "分析脚本不存在: %ANALYZER_SCRIPT%"
+)
+
 exit /b 0
 
 REM ============================================
