@@ -125,8 +125,21 @@ if [ -f "$ANALYZER_SCRIPT" ]; then
         DIFF_CONTENT="$(git diff HEAD^ HEAD 2>/dev/null)"
         
         if [ -n "$DIFF_CONTENT" ]; then
-            nohup bash "$ANALYZER_SCRIPT" "$PROJECT_ROOT" "$DIFF_CONTENT" > /dev/null 2>&1 &
-            log_success "最后一次提交分析已在后台启动"
+            # 创建临时日志文件用于捕获错误
+            TEMP_LOG=$(mktemp)
+            nohup bash "$ANALYZER_SCRIPT" "$PROJECT_ROOT" "$DIFF_CONTENT" > "$TEMP_LOG" 2>&1 &
+            ANALYSIS_PID=$!
+            
+            # 等待2秒检查是否有立即错误
+            sleep 2
+            if kill -0 $ANALYSIS_PID 2>/dev/null; then
+                log_success "最后一次提交分析已在后台启动 (PID: $ANALYSIS_PID)"
+                log_info "分析日志: $TEMP_LOG"
+            else
+                log_error "分析启动失败，错误信息:"
+                cat "$TEMP_LOG"
+                rm -f "$TEMP_LOG"
+            fi
         else
             log_info "最后一次提交没有代码变更，跳过分析"
         fi

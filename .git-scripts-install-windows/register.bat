@@ -133,8 +133,23 @@ if exist "%ANALYZER_SCRIPT%" (
         for %%A in ("!TEMP_DIFF!") do set "DIFF_SIZE=%%~zA"
         
         if not "!DIFF_SIZE!"=="0" (
-            start /B cmd /c ""%ANALYZER_SCRIPT%" "%PROJECT_ROOT%""
-            call :log_success "最后一次提交分析已在后台启动"
+            REM 创建临时日志文件用于捕获错误
+            set "TEMP_LOG=%TEMP%\git_analyzer_log_%RANDOM%.txt"
+            start /B cmd /c ""%ANALYZER_SCRIPT%" "%PROJECT_ROOT%" > "!TEMP_LOG!" 2>&1"
+            
+            REM 等待2秒检查是否有立即错误
+            timeout /t 2 /nobreak >nul
+            
+            REM 检查日志文件是否包含错误
+            findstr /C:"错误" /C:"失败" /C:"error" /C:"Error" "!TEMP_LOG!" >nul 2>&1
+            if !errorlevel! equ 0 (
+                call :log_error "分析启动失败，错误信息:"
+                type "!TEMP_LOG!"
+                del "!TEMP_LOG!" 2>nul
+            ) else (
+                call :log_success "最后一次提交分析已在后台启动"
+                call :log_info "分析日志: !TEMP_LOG!"
+            )
         ) else (
             call :log_info "最后一次提交没有代码变更，跳过分析"
         )

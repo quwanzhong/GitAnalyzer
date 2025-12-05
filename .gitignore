@@ -2,8 +2,11 @@
 
 # Git 代码分析器脚本目录
 .git-scripts/ 
-# Git 代码分析器日志目录
+# Git 代码分析器日志目录  不能提交 api key 避免暴露公网   （git-analyzer-config.json.backup 为配置文件备份）
 .git-scripts-logs/ 
+.git-scripts-logs/.git-analyzer-config.json
+.git-scripts-logs/.git-analyzer-config.json.backup 
+
 # Git 代码分析器安装脚本目录
 .git_scripts_install/ 
 # 代码摘要目录
@@ -31,3 +34,4 @@ desktop.ini
 *.swp
 *.swo
 *~
+*.json
