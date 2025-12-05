@@ -1,9 +1,10 @@
 @echo off
+chcp 65001 >nul 2>&1
 setlocal enabledelayedexpansion
 
 REM ============================================
 REM Git 代码分析器全局安装脚本 (Windows 版本 - 观察者模式)
-REM GitAnalyzer 作为全局服务，项目通过注册/注销来订阅服务
+REM GitAnalyzer 作为全局服务,项目通过注册/注销来订阅服务
 REM ============================================
 
 set "GIT_ANALYZER_HOME=%~dp0\.."

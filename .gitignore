@@ -34,5 +34,3 @@ desktop.ini
 *.swp
 *.swo
 *~
-*.json
-.git-scripts-logs/.git-analyzer-config.json
