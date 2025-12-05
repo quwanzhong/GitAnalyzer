@@ -4,8 +4,8 @@
 
 - ✅ Windows 10/11
 - ✅ Git for Windows
-- ✅ Gemini CLI
 - ✅ PowerShell 5.0+ 或 Git Bash
+- ✅ 代理软件（如果在中国大陆）
 
 ## 📦 安装步骤
 
@@ -20,25 +20,44 @@
 https://git-scm.com/download/win
 ```
 
-#### 1.2 安装 Gemini CLI
+#### 1.2 准备 API Key
+
+访问 [Google AI Studio](https://aistudio.google.com/app/apikey) 获取 Gemini API Key。
+
+### 步骤 2: 配置 Gemini API
+
+在开始使用前，需要配置 Gemini API Key：
 
 ```batch
-# 使用 npm 安装
-npm install -g @google/generative-ai-cli
-
-# 或使用其他包管理器
+# 运行配置向导（在 Git Bash 中）
+cd C:\path\to\GitAnalyzer
+./setup_gemini_api.sh
 ```
 
-#### 1.3 认证 Gemini CLI
+**配置向导会：**
+1. 提示你输入 API Key（从 https://aistudio.google.com/app/apikey 获取）
+2. 自动测试 API Key 是否有效
+3. 更新项目配置文件
+4. 部署新的分析脚本
 
+**手动配置方式：**
+如果配置向导不可用，你可以手动创建项目配置文件：
 ```batch
-# 运行认证命令
-gemini auth
-
-# 按照提示完成 Google 账号登录
+REM 在项目根目录创建配置文件
+mkdir .git-scripts-logs
+echo { > .git-scripts-logs\.git-analyzer-config.json
+echo   "enabled": true, >> .git-scripts-logs\.git-analyzer-config.json
+echo   "output_base_dir": "code_summaries", >> .git-scripts-logs\.git-analyzer-config.json
+echo   "gemini_model": "gemini-2.0-flash", >> .git-scripts-logs\.git-analyzer-config.json
+echo   "gemini_api_key": "YOUR_API_KEY_HERE", >> .git-scripts-logs\.git-analyzer-config.json
+echo   "max_diff_size": 50000, >> .git-scripts-logs\.git-analyzer-config.json
+echo   "timeout_seconds": 120, >> .git-scripts-logs\.git-analyzer-config.json
+echo   "http_proxy": "http://127.0.0.1:7897", >> .git-scripts-logs\.git-analyzer-config.json
+echo   "https_proxy": "http://127.0.0.1:7897" >> .git-scripts-logs\.git-analyzer-config.json
+echo } >> .git-scripts-logs\.git-analyzer-config.json
 ```
 
-### 步骤 2: 全局安装 GitAnalyzer
+### 步骤 3: 全局安装 GitAnalyzer
 
 ```batch
 # 在 GitAnalyzer 目录中运行
@@ -48,7 +67,7 @@ cd C:\path\to\GitAnalyzer
 # 重新打开命令提示符或 PowerShell
 ```
 
-### 步骤 3: 在项目中注册
+### 步骤 4: 在项目中注册
 
 ```batch
 # 进入你的项目目录
@@ -58,7 +77,7 @@ cd C:\path\to\your\project
 register
 ```
 
-### 步骤 4: 启动服务
+### 步骤 5: 启动服务
 
 ```batch
 git-analyzer-start

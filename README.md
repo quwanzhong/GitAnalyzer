@@ -104,7 +104,42 @@ cd C:\path\to\GitAnalyzer
 
 **详细 Windows 安装说明**: 查看 [README-WINDOWS.md](./README-WINDOWS.md)
 
-### 第二步：查看服务状态
+### 第二步：配置 Gemini API
+
+在开始使用前，需要配置 Gemini API Key：
+
+```bash
+# 运行配置向导
+cd /path/to/GitAnalyzer
+./setup_gemini_api.sh
+```
+
+**配置向导会：**
+1. 提示你输入 API Key（从 https://aistudio.google.com/app/apikey 获取）
+2. 自动测试 API Key 是否有效
+3. 更新项目配置文件
+4. 部署新的分析脚本
+
+**手动配置方式：**
+如果配置向导不可用，你可以手动编辑项目配置文件：
+```bash
+# 在项目根目录创建配置文件
+mkdir -p .git-scripts-logs
+cat > .git-scripts-logs/.git-analyzer-config.json << 'EOF'
+{
+  "enabled": true,
+  "output_base_dir": "code_summaries",
+  "gemini_model": "gemini-2.0-flash",
+  "gemini_api_key": "YOUR_API_KEY_HERE",
+  "max_diff_size": 50000,
+  "timeout_seconds": 120,
+  "http_proxy": "http://127.0.0.1:7897",
+  "https_proxy": "http://127.0.0.1:7897"
+}
+EOF
+```
+
+### 第三步：查看服务状态
 
 ```bash
 git-analyzer-status
@@ -116,7 +151,7 @@ git-analyzer-status
 bash ~/.git-analyzer/bin/service-control.sh status
 ```
 
-### 第三步：在项目中注册
+### 第四步：在项目中注册
 
 进入你想要分析的项目目录（与 .git 同级），运行：
 
@@ -131,7 +166,7 @@ register.sh
 bash ~/.git-analyzer/bin/register.sh
 ```
 
-### 第四步：正常使用 Git
+### 第五步：正常使用 Git
 
 ```bash
 git add .
@@ -139,7 +174,7 @@ git commit -m "your commit message"
 # 代码分析会自动在后台运行
 ```
 
-### 第五步：查看分析结果
+### 第六步：查看分析结果
 
 分析结果保存在 GitAnalyzer 目录下：
 
@@ -248,11 +283,12 @@ unregister.sh
 - **必需**:
   - Git
   - Bash
-  - [Gemini CLI](https://ai.google.dev/gemini-api/docs/cli)
+  - Gemini API Key
 
 - **可选**:
   - jq (用于 JSON 配置解析)
   - osascript (Mac 系统通知)
+  - 代理软件（如果在中国大陆）
 
 ## 🔍 故障排查
 
@@ -285,11 +321,11 @@ bash ~/.git-analyzer/bin/register.sh
 
 **解决方案**：
 ```bash
-# 检查 Gemini CLI 配置
-gemini config
+# 检查 API Key 配置
+cat .git-scripts-logs/.git-analyzer-config.json | grep gemini_api_key
 
 # 测试 API 连接
-echo "Hello" | gemini chat
+curl -s "https://generativelanguage.googleapis.com/v1/models?key=YOUR_API_KEY"
 ```
 
 ## 📝 注意事项

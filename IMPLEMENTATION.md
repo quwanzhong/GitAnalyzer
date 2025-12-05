@@ -73,12 +73,12 @@
 **执行时机**: 随时可用
 
 ### 5. 跨项目分析包装脚本
-**文件**: `.git-scripts-install/analyze_commit_wrapper.sh`
+**文件**: `.git-scripts-install/analyze_with_api.sh`
 
 **功能**:
 - 接收项目路径和代码差异作为参数
 - 读取项目配置
-- 调用 Gemini API 进行分析
+- 直接调用 Gemini API 进行分析
 - 保存结果到 `GitAnalyzer/项目名/code_summaries/`
 
 **执行时机**: 由 Git 钩子自动触发
@@ -126,7 +126,7 @@
    ↓
 2. Git 触发 post-commit 钩子
    ↓
-3. 钩子调用 analyze_commit_wrapper.sh
+3. 钩子调用 analyze_with_api.sh
    ↓
 4. 包装脚本读取项目配置
    ↓
@@ -160,7 +160,7 @@ GitAnalyzer/
 │   ├── register.sh                   # 项目注册脚本 ⭐
 │   ├── unregister.sh                 # 项目注销脚本 ⭐
 │   ├── service-control.sh            # 服务控制脚本 ⭐
-│   └── analyze_commit_wrapper.sh     # 跨项目分析包装脚本 ⭐
+│   └── analyze_with_api.sh     # 跨项目分析包装脚本 ⭐
 │
 ├── .git-scripts-logs/                # 配置模板
 │   └── .git-analyzer-config.json     # 默认配置模板

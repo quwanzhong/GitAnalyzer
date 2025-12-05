@@ -19,10 +19,12 @@
 **macOS/Linux**:
 - Bash Shell (`.sh`)
 - 原生 Unix 命令
+- curl + jq 进行 API 调用
 
 **Windows**:
 - Batch Script (`.bat`)
 - PowerShell 辅助
+- curl + PowerShell 进行 API 调用
 
 ### 2. 路径处理
 
@@ -58,19 +60,23 @@ for /f "delims=" %%i in ('powershell -Command "(Get-Content '%CONFIG_FILE%' | Co
 
 **macOS**:
 ```bash
-# 使用 gtimeout (GNU coreutils) 或自定义实现
-gtimeout 60 gemini chat < prompt.txt
+# 使用 curl 直接调用 API
+curl -s -X POST "$API_URL" \
+    -H "Content-Type: application/json" \
+    -d @"$TEMP_REQUEST" \
+    --connect-timeout 30 \
+    --max-time $TIMEOUT
 
 # 或使用后台进程 + kill
-gemini chat < prompt.txt &
+curl ... &
 pid=$!
 # ... 超时检测逻辑
 ```
 
 **Windows**:
 ```batch
-# 使用 PowerShell Job
-powershell -Command "$job = Start-Job -ScriptBlock { ... }; Wait-Job $job -Timeout 60"
+# 使用 PowerShell Job + curl
+powershell -Command "$job = Start-Job -ScriptBlock { curl ... }; Wait-Job $job -Timeout 60"
 ```
 
 ### 5. 系统通知
