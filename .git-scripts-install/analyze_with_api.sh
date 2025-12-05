@@ -235,7 +235,7 @@ if curl -s -X POST "$API_URL" \
         TITLE=$(echo "$AI_RESULT" | grep -m 1 "^#" | sed 's/^# //' | sed 's/[^a-zA-Z0-9\u4e00-\u9fa5_-]/_/g' | cut -c1-50)
         
         if [ -z "$TITLE" ]; then
-            TITLE="Commit_Summary_$(date +%H%M%S)"
+            TITLE="代码提交摘要"
         fi
         
         # 创建目录结构
@@ -244,12 +244,9 @@ if curl -s -X POST "$API_URL" \
         SAVE_DIR="$PROJECT_LOGS_DIR/code_summaries/$YEAR_MONTH/$DAY"
         mkdir -p "$SAVE_DIR"
         
-        # 保存文件
-        FILE_PATH="$SAVE_DIR/${TITLE}.md"
-        
-        if [ -f "$FILE_PATH" ]; then
-            FILE_PATH="$SAVE_DIR/${TITLE}_$(date +%H%M%S).md"
-        fi
+        # 使用时间戳作为文件名前缀,确保按时间倒序排列(最新的在上面)
+        TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+        FILE_PATH="$SAVE_DIR/${TIMESTAMP}_${TITLE}.md"
         
         echo "$AI_RESULT" > "$FILE_PATH"
         

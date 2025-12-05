@@ -204,7 +204,7 @@ REM 提取标题 (使用 PowerShell)
 for /f "delims=" %%i in ('powershell -Command "(Get-Content '%TEMP_RESULT%' -Encoding UTF8 | Select-String -Pattern ''^#'' | Select-Object -First 1).Line -replace ''^# '', '''' -replace ''[^a-zA-Z0-9\u4e00-\u9fa5_-]'', ''_'' | ForEach-Object { $_.Substring(0, [Math]::Min(50, $_.Length)) }"') do set "TITLE=%%i"
 
 if "%TITLE%"=="" (
-    for /f "tokens=1-3 delims=:." %%a in ("%TIME: =0%") do set "TITLE=Commit_Summary_%%a%%b%%c"
+    set "TITLE=代码提交摘要"
 )
 
 REM 创建目录结构
@@ -214,12 +214,10 @@ for /f "tokens=1-3 delims=/-" %%a in ("%TODAY%") do set "YEAR_MONTH=%%a%%b" & se
 set "SAVE_DIR=%PROJECT_LOGS_DIR%\code_summaries\%YEAR_MONTH%\%DAY%"
 if not exist "%SAVE_DIR%" mkdir "%SAVE_DIR%"
 
-REM 保存文件
-set "FILE_PATH=%SAVE_DIR%\%TITLE%.md"
-
-if exist "%FILE_PATH%" (
-    for /f "tokens=1-3 delims=:." %%a in ("%TIME: =0%") do set "FILE_PATH=%SAVE_DIR%\%TITLE%_%%a%%b%%c.md"
-)
+REM 使用时间戳作为文件名前缀,确保按时间倒序排列(最新的在上面)
+for /f "tokens=1-3 delims=/-" %%a in ("%TODAY%") do set "DATE_PREFIX=%%a%%b%%c"
+for /f "tokens=1-3 delims=:." %%a in ("%TIME: =0%") do set "TIME_PREFIX=%%a%%b%%c"
+set "FILE_PATH=%SAVE_DIR%\%DATE_PREFIX%_%TIME_PREFIX%_%TITLE%.md"
 
 copy "%TEMP_RESULT%" "%FILE_PATH%" >nul
 
