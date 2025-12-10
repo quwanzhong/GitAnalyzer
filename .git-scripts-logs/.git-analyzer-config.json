@@ -6,10 +6,14 @@
   "http_proxy": "http://127.0.0.1:7897",
   "https_proxy": "http://127.0.0.1:7897",
   "log_file": ".git-analyzer.log",
-  "max_diff_size": 50000,
+  "max_diff_size": 150000,
   "timeout_seconds": 60,
   "notification": {
     "show_success": true,
     "show_errors": true
+  },
+  "command_hints": {
+    "register": "Register.sh",
+    "unregister": "unRegister.sh"
   }
 }
