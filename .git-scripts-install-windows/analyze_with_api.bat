@@ -201,7 +201,7 @@ powershell -Command "$json = Get-Content '%TEMP_RESPONSE%' -Raw | ConvertFrom-Js
 call :log_success "AI 分析完成"
 
 REM 提取标题 (使用 PowerShell)
-for /f "delims=" %%i in ('powershell -Command "$line = (Get-Content '%TEMP_RESULT%' -Encoding UTF8 | Select-String -Pattern ''^#'' | Select-Object -First 1).Line; if ($line) { $title = $line -replace ''^# '', '''' -replace ''^\s+'', '''' -replace ''\s+$'', ''''; $title = $title -replace ''[/\\:*?\"<>|]'', ''_''; $title.Substring(0, [Math]::Min(50, $title.Length)) }"') do set "TITLE=%%i"
+for /f "delims=" %%i in ('powershell -Command "$line = (Get-Content '%TEMP_RESULT%' -Encoding UTF8 | Select-String -Pattern ''^#'' | Select-Object -First 1).Line; if ($line) { $title = $line -replace ''^# '', '''' -replace ''^\s+'', '''' -replace ''\s+$'', ''''; $title = $title -replace ''[/\\:*?\"<>|；]'', ''_''; $title.Substring(0, [Math]::Min(50, $title.Length)) }"') do set "TITLE=%%i"
 
 if "%TITLE%"=="" (
     set "TITLE=代码提交摘要"

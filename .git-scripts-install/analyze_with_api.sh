@@ -235,7 +235,7 @@ if [ "$HTTP_CODE" = "200" ]; then
         TITLE=$(echo "$AI_RESULT" | grep -m 1 "^#" | sed 's/^# //' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
         
         # 清理标题：移除特殊字符但保留中文、英文、数字、下划线和连字符
-        TITLE=$(echo "$TITLE" | tr -d '\r\n' | sed 's/[\/\\:*?"<>|]/_/g' | cut -c1-50)
+        TITLE=$(echo "$TITLE" | tr -d '\r\n' | sed 's/[\/\\:*?"<>|；]/_/g' | cut -c1-50)
         
         if [ -z "$TITLE" ]; then
             TITLE="代码提交摘要"
