@@ -72,6 +72,18 @@ echo.
 call :log_success "✨ 全局命令已更新，可以直接使用最新版本"
 echo.
 
+REM 自动重新加载环境变量
+call :log_info "正在重新加载环境变量..."
+REM 刷新 PATH 环境变量
+call refreshenv 2>nul
+if errorlevel 1 (
+    REM 如果 refreshemp 不可用，尝试其他方法
+    call :log_info "提示: 请重新打开命令提示符窗口以确保所有更改生效"
+) else (
+    call :log_success "✅ 环境变量已重新加载"
+)
+echo.
+
 exit /b 0
 
 REM ============================================

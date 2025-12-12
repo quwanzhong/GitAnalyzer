@@ -76,6 +76,72 @@ fi
 log_info "=========================================="
 echo ""
 
+# 同步配置文件到所有注册项目
+echo ""
+log_info "开始同步配置文件到已注册项目..."
+
+REGISTRY_FILE="$HOME/.git-analyzer/config/registered_projects.txt"
+CONFIG_SOURCE="$ANALYZER_HOME/.git-scripts-logs/.git-analyzer-config.json"
+
+if [ -f "$REGISTRY_FILE" ] && [ -f "$CONFIG_SOURCE" ]; then
+    CONFIG_SYNCED=0
+    CONFIG_FAILED=0
+    
+    while IFS= read -r project_path; do
+        if [ -d "$project_path" ]; then
+            CONFIG_TARGET="$project_path/.git-scripts-logs/.git-analyzer-config.json"
+            
+            # 创建目标目录
+            mkdir -p "$(dirname "$CONFIG_TARGET")"
+            
+            # 如果目标配置存在，保留其 API 密钥
+            if [ -f "$CONFIG_TARGET" ]; then
+                # 读取目标配置的 API 密钥
+                EXISTING_API_KEY=$(jq -r '.gemini_api_key' "$CONFIG_TARGET" 2>/dev/null || echo "")
+                
+                # 复制源配置
+                if cp "$CONFIG_SOURCE" "$CONFIG_TARGET"; then
+                    # 恢复原有的 API 密钥（如果存在且不为空）
+                    if [ -n "$EXISTING_API_KEY" ] && [ "$EXISTING_API_KEY" != "null" ] && [ "$EXISTING_API_KEY" != "YOUR_API_KEY_HERE" ]; then
+                        jq --arg api_key "$EXISTING_API_KEY" '.gemini_api_key = $api_key' "$CONFIG_TARGET" > "$CONFIG_TARGET.tmp" && mv "$CONFIG_TARGET.tmp" "$CONFIG_TARGET"
+                    fi
+                    log_success "已同步配置到: $(basename "$project_path")"
+                    ((CONFIG_SYNCED++))
+                else
+                    log_error "配置同步失败: $(basename "$project_path")"
+                    ((CONFIG_FAILED++))
+                fi
+            else
+                # 目标配置不存在，直接复制
+                if cp "$CONFIG_SOURCE" "$CONFIG_TARGET" ]; then
+                    log_success "已同步配置到: $(basename "$project_path")"
+                    ((CONFIG_SYNCED++))
+                else
+                    log_error "配置同步失败: $(basename "$project_path")"
+                    ((CONFIG_FAILED++))
+                fi
+            fi
+        fi
+    done < "$REGISTRY_FILE"
+    
+    echo ""
+    log_info "配置同步结果:"
+    log_success "成功: $CONFIG_SYNCED 个项目"
+    if [ $CONFIG_FAILED -gt 0 ]; then
+        log_error "失败: $CONFIG_FAILED 个项目"
+    fi
+else
+    if [ ! -f "$REGISTRY_FILE" ]; then
+        log_warning "注册列表文件不存在，跳过配置同步"
+    fi
+    if [ ! -f "$CONFIG_SOURCE" ]; then
+        log_warning "源配置文件不存在，跳过配置同步"
+    fi
+fi
+
+echo ""
+log_info "=========================================="
+
 # 显示版本信息
 if [ -f "$GLOBAL_BIN_DIR/register.sh" ]; then
     LINES=$(wc -l < "$GLOBAL_BIN_DIR/register.sh")
@@ -83,5 +149,13 @@ if [ -f "$GLOBAL_BIN_DIR/register.sh" ]; then
 fi
 
 echo ""
-log_success "✨ 全局命令已更新，可以直接使用最新版本"
+log_success "✨ 全局命令和配置已更新"
+echo ""
+
+# 自动重新加载 shell 配置
+if [ -f "$HOME/.zshrc" ]; then
+    log_info "正在重新加载 shell 配置..."
+    source "$HOME/.zshrc"
+    log_success "✅ shell 配置已重新加载，所有更改立即生效"
+fi
 echo ""

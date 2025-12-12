@@ -38,6 +38,33 @@ if exist "%POST_COMMIT_HOOK%" (
         )
         :backup_restored
     )
+) else (
+    call :log_info "Git 钩子不存在"
+)
+
+REM 从注册列表中移除项目
+set "REGISTRY_FILE=%USERPROFILE%\.git-analyzer\config\registered_projects.txt"
+if exist "%REGISTRY_FILE%" (
+    findstr /c:"%PROJECT_ROOT%" "%REGISTRY_FILE%" >nul
+    if not errorlevel 1 (
+        REM 创建临时文件
+        set "TEMP_FILE=%TEMP%\reg_temp_%RANDOM%.txt"
+        
+        REM 复制除了当前项目外的所有行
+        for /f "usebackq tokens=*" %%a in ("%REGISTRY_FILE%") do (
+            if not "%%a"=="%PROJECT_ROOT%" (
+                echo %%a >> "!TEMP_FILE!"
+            )
+        )
+        
+        REM 替换原文件
+        move "!TEMP_FILE!" "%REGISTRY_FILE%" >nul
+        call :log_info "已从注册列表中移除项目"
+    ) else (
+        call :log_info "项目未在注册列表中"
+    )
+) else (
+    call :log_info "注册列表文件不存在"
 )
 
 call :log_success "注销完成！"

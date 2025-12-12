@@ -1,45 +1,42 @@
 #!/bin/bash
 
 # ============================================
-# 直接使用 Gemini API 进行分析
-# 绕过 Gemini CLI，直接调用 REST API
+# Git 提交代码自动分析脚本 (Mac版本)
+# 使用 Gemini CLI 进行代码分析
 # ============================================
 
-set -e
+set -e  # 遇到错误立即退出
 
-# 参数
-PROJECT_ROOT="${1:-$(git rev-parse --show-toplevel 2>/dev/null)}"
-DIFF_CONTENT="${2:-$(git diff HEAD^ HEAD 2>/dev/null)}"
+# 获取脚本所在目录的父目录（项目根目录）
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-if [ -z "$PROJECT_ROOT" ]; then
-    echo "错误: 无法确定项目根目录"
-    exit 1
+# 使用传入的项目目录参数，如果没有提供则使用默认路径
+if [ -n "$1" ]; then
+    PROJECT_ROOT="$1"
+else
+    PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 fi
 
 # 获取 GitAnalyzer 主目录
-ANALYZER_HOME="$(cat ~/.git-analyzer/config/analyzer_home 2>/dev/null)"
-if [ -z "$ANALYZER_HOME" ]; then
-    echo "错误: GitAnalyzer 未正确安装"
-    exit 1
-fi
+ANALYZER_HOME=$(cat "$SCRIPT_DIR/../config/analyzer_home" 2>/dev/null || echo "$HOME/GitAnalyzer")
+PROJECT_NAME=$(basename "$PROJECT_ROOT")
 
-# 项目信息
-PROJECT_NAME="$(basename "$PROJECT_ROOT")"
+# 日志和配置文件路径
 PROJECT_LOGS_DIR="$ANALYZER_HOME/$PROJECT_NAME"
-CONFIG_FILE="$PROJECT_ROOT/.git-scripts-logs/.git-analyzer-config.json"
+LOGS_DIR="$PROJECT_ROOT/.git-scripts-logs"
+CONFIG_FILE="$LOGS_DIR/.git-analyzer-config.json"
 LOG_FILE="$PROJECT_LOGS_DIR/analyzer.log"
-
-# 创建项目日志目录
-mkdir -p "$PROJECT_LOGS_DIR"
-mkdir -p "$PROJECT_LOGS_DIR/code_summaries"
 
 # 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-NC='\033[0m'
+NC='\033[0m' # No Color
 
+# ============================================
+# 日志函数
+# ============================================
 log() {
     local level=$1
     shift
@@ -58,104 +55,140 @@ log_success() {
     echo -e "${GREEN}✅ $@${NC}"
 }
 
-log_error() {
-    log "ERROR" "$@"
-    echo -e "${RED}❌ $@${NC}"
-}
-
 log_warning() {
     log "WARNING" "$@"
     echo -e "${YELLOW}⚠️  $@${NC}"
 }
 
+log_error() {
+    log "ERROR" "$@"
+    echo -e "${RED}❌ $@${NC}" >&2
+}
+
+# ============================================
+# 检查配置文件是否存在
+# ============================================
+check_config() {
+    if [ ! -f "$CONFIG_FILE" ]; then
+        log_error "配置文件不存在: $CONFIG_FILE"
+        log_error "请先创建配置文件"
+        exit 1
+    fi
+}
+
+# ============================================
 # 读取配置
-if command -v jq &> /dev/null; then
+# ============================================
+read_config() {
+    if ! command -v jq &> /dev/null; then
+        log_warning "jq 未安装，使用默认配置"
+        ENABLED="true"
+        # 使用 GitAnalyzer 目录作为输出目录
+        ANALYZER_HOME=$(cat "$SCRIPT_DIR/../config/analyzer_home" 2>/dev/null || echo "$HOME/GitAnalyzer")
+        OUTPUT_DIR="$ANALYZER_HOME/$(basename "$PROJECT_ROOT")/code_summaries"
+        GEMINI_MODEL="gemini-2.0-flash-exp"
+        return
+    fi
+    
     ENABLED=$(jq -r '.enabled' "$CONFIG_FILE")
+    # 使用 GitAnalyzer 目录作为输出目录
+    ANALYZER_HOME=$(cat "$SCRIPT_DIR/../config/analyzer_home" 2>/dev/null || echo "$HOME/GitAnalyzer")
+    OUTPUT_DIR="$ANALYZER_HOME/$(basename "$PROJECT_ROOT")/code_summaries"
     GEMINI_MODEL=$(jq -r '.gemini_model' "$CONFIG_FILE")
     MAX_DIFF_SIZE=$(jq -r '.max_diff_size' "$CONFIG_FILE")
     TIMEOUT=$(jq -r '.timeout_seconds' "$CONFIG_FILE")
-    HTTP_PROXY=$(jq -r '.http_proxy // ""' "$CONFIG_FILE")
-    HTTPS_PROXY=$(jq -r '.https_proxy // ""' "$CONFIG_FILE")
-    GEMINI_API_KEY=$(jq -r '.gemini_api_key // ""' "$CONFIG_FILE")
-else
-    ENABLED="true"
-    GEMINI_MODEL="gemini-1.5-flash"
-    MAX_DIFF_SIZE=50000
-    TIMEOUT=60
-    HTTP_PROXY=""
-    HTTPS_PROXY=""
-    GEMINI_API_KEY=""
-fi
+    
+    # 读取代理设置
+    HTTP_PROXY=$(jq -r '.http_proxy' "$CONFIG_FILE" 2>/dev/null || echo "")
+    HTTPS_PROXY=$(jq -r '.https_proxy' "$CONFIG_FILE" 2>/dev/null || echo "")
+    GEMINI_API_KEY=$(jq -r '.gemini_api_key' "$CONFIG_FILE" 2>/dev/null || echo "")
+}
 
-# 设置代理（如果配置了）
-if [ -n "$HTTP_PROXY" ]; then
-    export http_proxy="$HTTP_PROXY"
-    export HTTP_PROXY="$HTTP_PROXY"
-    log_info "使用 HTTP 代理: $HTTP_PROXY"
-fi
-
-if [ -n "$HTTPS_PROXY" ]; then
-    export https_proxy="$HTTPS_PROXY"
-    export HTTPS_PROXY="$HTTPS_PROXY"
-    log_info "使用 HTTPS 代理: $HTTPS_PROXY"
-fi
-
+# ============================================
 # 检查是否启用
-if [ "$ENABLED" != "true" ]; then
-    log_info "代码分析功能已禁用，跳过分析"
-    exit 0
-fi
+# ============================================
+check_enabled() {
+    if [ "$ENABLED" != "true" ]; then
+        log_info "代码分析功能已禁用，跳过分析"
+        exit 0
+    fi
+}
 
-# 检查全局服务状态
-SERVICE_STATUS=$(cat ~/.git-analyzer/config/service_status 2>/dev/null || echo "enabled")
-if [ "$SERVICE_STATUS" != "enabled" ]; then
-    log_info "全局服务已禁用，跳过分析"
-    exit 0
-fi
+# ============================================
+# 检查 Gemini CLI 是否安装
+# ============================================
+check_gemini_cli() {
+    if ! command -v gemini &> /dev/null; then
+        log_error "Gemini CLI 未安装或不在 PATH 中"
+        log_error "请先安装 Gemini CLI: https://ai.google.dev/gemini-api/docs/cli"
+        exit 1
+    fi
+    log_info "Gemini CLI 检查通过"
+}
 
-log_info "========== Git 代码分析开始 =========="
-log_info "项目: $PROJECT_NAME"
-log_info "项目路径: $PROJECT_ROOT"
+# ============================================
+# 检查网络连接
+# ============================================
+check_network() {
+    if ! ping -c 1 8.8.8.8 &> /dev/null; then
+        log_error "网络连接失败，请检查网络或代理设置"
+        log_error "可能原因: 1) 网络断开 2) 代理未启动 3) 防火墙阻止"
+        exit 1
+    fi
+    log_info "网络连接正常"
+}
 
-# 检查 API Key
-if [ -z "$GEMINI_API_KEY" ]; then
-    log_error "未配置 Gemini API Key"
-    log_error "请在配置文件中添加: gemini_api_key"
-    exit 1
-fi
+# ============================================
+# 获取 Git 提交差异
+# ============================================
+get_commit_diff() {
+    cd "$PROJECT_ROOT"
+    
+    # 检查是否在 Git 仓库中
+    if ! git rev-parse --git-dir > /dev/null 2>&1; then
+        log_error "当前目录不是 Git 仓库"
+        exit 1
+    fi
+    
+    # 获取提交信息
+    COMMIT_HASH=$(git rev-parse HEAD)
+    COMMIT_MESSAGE=$(git log -1 --pretty=%B)
+    COMMIT_AUTHOR=$(git log -1 --pretty=%an)
+    COMMIT_DATE=$(git log -1 --pretty=%ad --date=format:'%Y-%m-%d %H:%M:%S')
+    
+    log_info "提交哈希: $COMMIT_HASH"
+    log_info "提交信息: $COMMIT_MESSAGE"
+    
+    # 获取差异
+    DIFF_OUTPUT=$(git diff HEAD^ HEAD 2>&1)
+    
+    if [ -z "$DIFF_OUTPUT" ]; then
+        log_warning "没有检测到代码变更，可能是首次提交或空提交"
+        exit 0
+    fi
+    
+    # 检查差异大小
+    DIFF_SIZE=${#DIFF_OUTPUT}
+    if [ $DIFF_SIZE -gt $MAX_DIFF_SIZE ]; then
+        log_warning "代码差异过大 ($DIFF_SIZE 字符)，可能导致分析超时"
+    fi
+    
+    log_info "成功获取代码差异 ($DIFF_SIZE 字符)"
+}
 
-# 获取提交信息
-cd "$PROJECT_ROOT"
-COMMIT_HASH=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
-COMMIT_MESSAGE=$(git log -1 --pretty=%B 2>/dev/null || echo "unknown")
-COMMIT_AUTHOR=$(git log -1 --pretty=%an 2>/dev/null || echo "unknown")
-COMMIT_DATE=$(git log -1 --pretty=%ad --date=format:'%Y-%m-%d %H:%M:%S' 2>/dev/null || date '+%Y-%m-%d %H:%M:%S')
-
-log_info "提交哈希: $COMMIT_HASH"
-log_info "提交信息: $COMMIT_MESSAGE"
-
-# 检查差异大小
-if [ -z "$DIFF_CONTENT" ]; then
-    log_warning "没有检测到代码变更"
-    exit 0
-fi
-
-DIFF_SIZE=${#DIFF_CONTENT}
-log_info "代码差异大小: $DIFF_SIZE 字符"
-
-if [ $DIFF_SIZE -gt $MAX_DIFF_SIZE ]; then
-    log_warning "代码差异过大，可能导致分析超时"
-fi
-
-# 创建 API 请求
-log_info "正在调用 Gemini API 进行分析..."
-log_info "使用模型: $GEMINI_MODEL"
-
-# 构建 prompt
-PROMPT="请分析以下 Git 提交的代码差异，并严格按照要求的 Markdown 格式输出。
+# ============================================
+# 使用 Gemini CLI 分析代码
+# ============================================
+analyze_with_gemini() {
+    log_info "正在调用 Gemini API 进行分析..."
+    
+    # 创建临时文件存储 prompt
+    TEMP_PROMPT=$(mktemp)
+    
+    cat > "$TEMP_PROMPT" << EOF
+请分析以下 Git 提交的代码差异，并严格按照要求的 Markdown 格式输出。
 
 **提交信息:**
-- 项目名称: $PROJECT_NAME
 - 提交哈希: $COMMIT_HASH
 - 提交信息: $COMMIT_MESSAGE
 - 提交作者: $COMMIT_AUTHOR
@@ -169,7 +202,7 @@ PROMPT="请分析以下 Git 提交的代码差异，并严格按照要求的 Mar
 
 ## ✨ 功能总结
 
-[简明扰要地总结本次提交实现的功能，3-5句话]
+[简明扼要地总结本次提交实现的功能，3-5句话]
 
 ## 🧠 AI 代码分析
 
@@ -195,92 +228,122 @@ PROMPT="请分析以下 Git 提交的代码差异，并严格按照要求的 Mar
 **代码差异:**
 
 \`\`\`diff
-$DIFF_CONTENT
-\`\`\`"
-
-# 调用 Gemini API（使用 v1beta API）
-API_URL="https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}"
-
-# 创建临时文件
-TEMP_REQUEST=$(mktemp)
-TEMP_RESPONSE=$(mktemp)
-
-# 构建 JSON 请求
-cat > "$TEMP_REQUEST" << EOF
-{
-  "contents": [{
-    "parts": [{
-      "text": $(echo "$PROMPT" | jq -Rs .)
-    }]
-  }]
-}
+$DIFF_OUTPUT
+\`\`\`
 EOF
-
-# 发送请求
-HTTP_CODE=$(curl -s -w "%{http_code}" -X POST "$API_URL" \
-    -H "Content-Type: application/json" \
-    -d @"$TEMP_REQUEST" \
-    --connect-timeout 30 \
-    --max-time $TIMEOUT \
-    -o "$TEMP_RESPONSE")
-
-if [ "$HTTP_CODE" = "200" ]; then
-    # 解析响应
-    AI_RESULT=$(jq -r '.candidates[0].content.parts[0].text' "$TEMP_RESPONSE" 2>/dev/null)
     
-    if [ -n "$AI_RESULT" ] && [ "$AI_RESULT" != "null" ]; then
+    # 调用 Gemini CLI
+    # 使用完整路径以确保在 git hooks 环境中能找到命令
+    GEMINI_CMD="/opt/homebrew/bin/gemini"
+    if [ ! -f "$GEMINI_CMD" ]; then
+        # 如果默认路径不存在，尝试从 PATH 中查找
+        GEMINI_CMD=$(command -v gemini || echo "gemini")
+    fi
+    
+    # 设置环境变量
+    export GEMINI_API_KEY="$GEMINI_API_KEY"
+    export http_proxy="$HTTP_PROXY"
+    export https_proxy="$HTTPS_PROXY"
+    
+    if "$GEMINI_CMD" chat -m "$GEMINI_MODEL" < "$TEMP_PROMPT" > "$TEMP_PROMPT.result" 2>&1; then
+        AI_RESULT=$(cat "$TEMP_PROMPT.result")
+        rm -f "$TEMP_PROMPT" "$TEMP_PROMPT.result"
+        
+        if [ -z "$AI_RESULT" ]; then
+            log_error "Gemini API 返回空结果"
+            return 1
+        fi
+        
         log_success "AI 分析完成"
-        
-        # 提取标题
-        TITLE=$(echo "$AI_RESULT" | grep -m 1 "^#" | sed 's/^# //' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-        
-        # 清理标题：移除特殊字符但保留中文、英文、数字、下划线和连字符
-        TITLE=$(echo "$TITLE" | tr -d '\r\n' | sed 's/[\/\\:*?"<>|；]/_/g' | cut -c1-50)
-        
-        if [ -z "$TITLE" ]; then
-            TITLE="代码提交摘要"
-        fi
-        
-        # 创建目录结构
-        YEAR_MONTH=$(date +%Y%m)
-        DAY=$(date +%d)
-        SAVE_DIR="$PROJECT_LOGS_DIR/code_summaries/$YEAR_MONTH/$DAY"
-        mkdir -p "$SAVE_DIR"
-        
-        # 使用时间戳作为文件名前缀,确保按时间倒序排列(最新的在上面)
-        TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-        FILE_PATH="$SAVE_DIR/${TIMESTAMP}_${TITLE}.md"
-        
-        echo "$AI_RESULT" > "$FILE_PATH"
-        
-        log_success "分析结果已保存到: $FILE_PATH"
-        log_success "========== Git 代码分析完成 =========="
-        
-        # Mac 通知
-        if command -v osascript &> /dev/null; then
-            osascript -e "display notification \"项目: $PROJECT_NAME\" with title \"Git Analyzer\" subtitle \"$TITLE\"" 2>/dev/null || true
-        fi
+        return 0
     else
-        log_error "API 返回空结果或格式错误"
-        ERROR_MSG=$(jq -r '.error.message // "未知错误"' "$TEMP_RESPONSE" 2>/dev/null)
-        log_error "错误信息: $ERROR_MSG"
-        log_error "完整响应: $(cat "$TEMP_RESPONSE")"
+        local exit_code=$?
+        rm -f "$TEMP_PROMPT" "$TEMP_PROMPT.result"
+        
+        if [ $exit_code -eq 124 ]; then
+            log_error "Gemini API 调用超时 (>${TIMEOUT}秒)"
+        else
+            log_error "Gemini API 调用失败 (退出码: $exit_code)"
+            log_error "可能原因: 1) API 密钥无效 2) 网络问题 3) 配额用尽"
+        fi
+        return 1
+    fi
+}
+
+# ============================================
+# 保存分析结果
+# ============================================
+save_result() {
+    # 提取标题（第一行）
+    TITLE=$(echo "$AI_RESULT" | grep -m 1 "^#" | sed 's/^# //' | sed 's/[\/\\:*?"<>|；；]/_/g' | tr -d '\r\n' | cut -c1-50)
+    
+    if [ -z "$TITLE" ]; then
+        TITLE="Commit_Summary_$(date +%H%M%S)"
+        log_warning "无法提取标题，使用默认文件名: $TITLE"
+    fi
+    
+    # 创建目录结构: 年月/日/
+    YEAR_MONTH=$(date +%Y%m)
+    DAY=$(date +%d)
+    
+    SAVE_DIR="$OUTPUT_DIR/$YEAR_MONTH/$DAY"
+    mkdir -p "$SAVE_DIR"
+    
+    # 保存文件
+    FILE_PATH="$SAVE_DIR/${TITLE}.md"
+    
+    # 如果文件已存在，添加时间戳
+    if [ -f "$FILE_PATH" ]; then
+        FILE_PATH="$SAVE_DIR/${TITLE}_$(date +%H%M%S).md"
+    fi
+    
+    echo "$AI_RESULT" > "$FILE_PATH"
+    
+    log_success "分析结果已保存到: $FILE_PATH"
+    
+    # 显示通知（Mac 系统）
+    if command -v osascript &> /dev/null; then
+        osascript -e "display notification \"代码分析完成\" with title \"Git Analyzer\" subtitle \"$TITLE\""
+    fi
+}
+
+# ============================================
+# 主函数
+# ============================================
+main() {
+    # 创建日志目录
+    mkdir -p "$PROJECT_LOGS_DIR"
+    
+    log_info "========== Git 代码分析开始 =========="
+    
+    # 1. 检查配置
+    check_config
+    read_config
+    check_enabled
+    
+    # 2. 环境检查
+    check_gemini_cli
+    check_network
+    
+    # 3. 获取代码差异
+    get_commit_diff
+    
+    # 4. AI 分析
+    if ! analyze_with_gemini; then
+        log_error "代码分析失败"
         exit 1
     fi
-elif [ -z "$HTTP_CODE" ]; then
-    log_error "API 调用失败: 网络连接超时或无法访问"
-    log_error "请检查:"
-    log_error "  1. 网络连接是否正常"
-    log_error "  2. 代理设置是否正确 (当前: HTTP=$HTTP_PROXY, HTTPS=$HTTPS_PROXY)"
-    log_error "  3. API Key 是否有效"
-    exit 1
-else
-    log_error "API 调用失败: HTTP $HTTP_CODE"
-    ERROR_MSG=$(jq -r '.error.message // "未知错误"' "$TEMP_RESPONSE" 2>/dev/null)
-    log_error "错误信息: $ERROR_MSG"
-    log_error "完整响应: $(cat "$TEMP_RESPONSE")"
-    exit 1
-fi
+    
+    # 5. 保存结果
+    save_result
+    
+    log_success "========== Git 代码分析完成 =========="
+}
 
-# 清理临时文件
-rm -f "$TEMP_REQUEST" "$TEMP_RESPONSE"
+# ============================================
+# 错误处理
+# ============================================
+trap 'log_error "脚本执行过程中发生错误"; exit 1' ERR
+
+# 执行主函数
+main "$@"

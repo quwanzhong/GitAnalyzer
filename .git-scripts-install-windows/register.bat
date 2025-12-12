@@ -92,23 +92,19 @@ if not exist "%PROJECT_ROOT%\.git-scripts-logs" mkdir "%PROJECT_ROOT%\.git-scrip
 
 REM 复制或创建配置文件
 if not exist "%PROJECT_ROOT%\.git-scripts-logs\.git-analyzer-config.json" (
-    if exist "%ANALYZER_HOME%\.git-scripts-logs\.git-analyzer-config.json" (
-        copy "%ANALYZER_HOME%\.git-scripts-logs\.git-analyzer-config.json" "%PROJECT_ROOT%\.git-scripts-logs\" >nul
+    set "TEMPLATE_FILE=%ANALYZER_HOME%\.git-scripts-logs\config-template.json"
+    if exist "%TEMPLATE_FILE%" (
+        REM 从模板复制配置并替换 API 密钥
+        if defined GEMINI_API_KEY (
+            powershell -Command "(Get-Content '%TEMPLATE_FILE%') -replace '\"gemini_api_key\": \"\"', '\"gemini_api_key\": \"%GEMINI_API_KEY%\"' | Set-Content '%PROJECT_ROOT%\.git-scripts-logs\.git-analyzer-config.json'"
+        ) else (
+            copy "%TEMPLATE_FILE%" "%PROJECT_ROOT%\.git-scripts-logs\.git-analyzer-config.json" >nul
+        )
+        call :log_info "已从模板复制配置文件"
     ) else (
-        (
-        echo {
-        echo   "enabled": true,
-        echo   "output_base_dir": "code_summaries",
-        echo   "gemini_model": "gemini-1.5-flash",
-        echo   "gemini_api_key": "YOUR_API_KEY_HERE",
-        echo   "max_diff_size": 50000,
-        echo   "timeout_seconds": 120,
-        echo   "http_proxy": "",
-        echo   "https_proxy": ""
-        echo }
-        ) > "%PROJECT_ROOT%\.git-scripts-logs\.git-analyzer-config.json"
+        call :log_error "配置模板不存在: %TEMPLATE_FILE%"
+        exit /b 1
     )
-    call :log_info "已创建项目配置文件"
 )
 
 REM 创建项目日志目录

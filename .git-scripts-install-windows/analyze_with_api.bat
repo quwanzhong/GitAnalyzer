@@ -201,7 +201,7 @@ powershell -Command "$json = Get-Content '%TEMP_RESPONSE%' -Raw | ConvertFrom-Js
 call :log_success "AI 分析完成"
 
 REM 提取标题 (使用 PowerShell)
-for /f "delims=" %%i in ('powershell -Command "$line = (Get-Content '%TEMP_RESULT%' -Encoding UTF8 | Select-String -Pattern ''^#'' | Select-Object -First 1).Line; if ($line) { $title = $line -replace ''^# '', '''' -replace ''^\s+'', '''' -replace ''\s+$'', ''''; $title = $title -replace ''[/\\:*?\"<>|；]'', ''_''; $title.Substring(0, [Math]::Min(50, $title.Length)) }"') do set "TITLE=%%i"
+for /f "delims=" %%i in ('powershell -Command "$line = (Get-Content '%TEMP_RESULT%' -Encoding UTF8 | Select-String -Pattern ''^#'' | Select-Object -First 1).Line; if ($line) { $title = $line -replace ''^# '', '''' -replace ''^\s+'', '''' -replace ''\s+$'', ''''; $title = $title -replace ''[/\\:*?\"<>|；；]'', ''_''; $title.Substring(0, [Math]::Min(50, $title.Length)) }"') do set "TITLE=%%i"
 
 if "%TITLE%"=="" (
     set "TITLE=代码提交摘要"
@@ -214,10 +214,14 @@ for /f "tokens=1-3 delims=/-" %%a in ("%TODAY%") do set "YEAR_MONTH=%%a%%b" & se
 set "SAVE_DIR=%PROJECT_LOGS_DIR%\code_summaries\%YEAR_MONTH%\%DAY%"
 if not exist "%SAVE_DIR%" mkdir "%SAVE_DIR%"
 
-REM 使用时间戳作为文件名前缀,确保按时间倒序排列(最新的在上面)
-for /f "tokens=1-3 delims=/-" %%a in ("%TODAY%") do set "DATE_PREFIX=%%a%%b%%c"
-for /f "tokens=1-3 delims=:." %%a in ("%TIME: =0%") do set "TIME_PREFIX=%%a%%b%%c"
-set "FILE_PATH=%SAVE_DIR%\%DATE_PREFIX%_%TIME_PREFIX%_%TITLE%.md"
+REM 保存文件
+set "FILE_PATH=%SAVE_DIR%\%TITLE%.md"
+
+REM 如果文件已存在，添加时间戳
+if exist "%FILE_PATH%" (
+    for /f "tokens=1-3 delims=:." %%a in ("%TIME: =0%") do set "TIME_SUFFIX=%%a%%b%%c"
+    set "FILE_PATH=%SAVE_DIR%\%TITLE%_%TIME_SUFFIX%.md"
+)
 
 copy "%TEMP_RESULT%" "%FILE_PATH%" >nul
 
