@@ -219,6 +219,20 @@ cd /path/to/GitAnalyzer/项目名/code_summaries/
 ls -la
 ```
 
+### 第十步（开发者）：同步更新
+
+如果你修改了 GitAnalyzer 的脚本，需要同步到全局：
+
+```bash
+cd /path/to/GitAnalyzer
+git-analyzer-sync
+```
+
+**git-analyzer-sync 会自动：**
+- 同步脚本到全局目录
+- 同步配置到所有已注册项目
+- 重新加载 shell 配置使更改立即生效
+
 ## 🎮 命令参考
 
 ### 全局服务控制
@@ -235,7 +249,23 @@ git-analyzer-status
 
 # 列出所有已注册项目
 git-analyzer-list
+
+# 同步脚本和配置到所有项目
+git-analyzer-sync
 ```
+
+### 开发者命令
+
+```bash
+# 同步最新脚本到全局目录（开发时使用）
+git-analyzer-sync
+```
+
+**git-analyzer-sync 功能说明：**
+- 同步脚本文件到全局安装目录
+- 将配置文件同步到所有已注册的项目
+- 自动重新加载 shell 配置使更改立即生效
+- 保留各项目的 API 密钥设置
 
 ### 项目管理
 
@@ -339,6 +369,17 @@ source ~/.zshrc
 # 或使用完整路径
 bash ~/.git-analyzer/bin/register.sh
 ```
+
+### 问题：修改了脚本但没有生效
+
+**解决方案**：
+```bash
+# 同步最新脚本到全局
+cd /path/to/GitAnalyzer
+git-analyzer-sync
+```
+
+**说明**：git-analyzer-sync 会自动同步脚本并重新加载 shell 配置。
 
 ### 问题：分析没有运行
 
